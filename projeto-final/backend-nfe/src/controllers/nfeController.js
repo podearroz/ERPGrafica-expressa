@@ -365,26 +365,26 @@ export async function downloadDANFE(req, res) {
     const L = (t, x, y, w) =>
       doc.save().fontSize(5.5).font('Helvetica-Bold').fillColor(CINZA)
          .text(t, x + 2, y + 2, { width: w - 4, lineBreak: false }).restore();
-    // Valor centralizado verticalmente na célula (altura padrão 22pt)
-    const V = (t, x, y, w, align = 'left', sz = 8, bold = false, cellH = 22) =>
+    // Valor centralizado verticalmente na célula (altura padrão 17pt)
+    const V = (t, x, y, w, align = 'left', sz = 8, bold = false, cellH = 17) =>
       doc.save().fontSize(sz).font(bold ? 'Helvetica-Bold' : 'Helvetica').fillColor(PRETO)
          .text(String(t ?? ''), x + 2, y + Math.floor((cellH - sz) / 2) + 1,
                { width: w - 4, lineBreak: false, align }).restore();
     // Barra cinza de seção
     const SH = (t, x, y, w) => {
-      doc.save().rect(x, y, w, 11).fillAndStroke(BG, PRETO)
+      doc.save().rect(x, y, w, 9).fillAndStroke(BG, PRETO)
          .fontSize(6.5).font('Helvetica-Bold').fillColor(PRETO)
-         .text(t, x + 2, y + 2, { width: w - 4, lineBreak: false }).restore();
-      return y + 11;
+         .text(t, x + 2, y + 1.5, { width: w - 4, lineBreak: false }).restore();
+      return y + 9;
     };
 
     let y = MT;
-    const rH = 22;   // altura padrão de cada linha de dados
+    const rH = 17;   // altura padrão de cada linha de dados (igual ao DANFE oficial)
 
     // ════════════════════════════════════════════════════════════════════
     // 1. CANHOTO — tracejado | texto | data/assinatura | NF-e nº
     // ════════════════════════════════════════════════════════════════════
-    const cH    = 42;
+    const cH    = 38;
     const cTxtW = Math.floor(PW * 0.55);
     const cDtW  = Math.floor(PW * 0.25);
     const cNfW  = PW - cTxtW - cDtW;
@@ -404,7 +404,7 @@ export async function downloadDANFE(req, res) {
          ML + 3, y + 3, { width: cTxtW - 6, lineBreak: true }
        ).restore();
     doc.save().fontSize(7).font('Helvetica-Bold').fillColor(PRETO)
-       .text(`NF-e  Nº. ${numeroFmt}  Série ${serie}`, ML + 3, y + cH - 12, { lineBreak: false }).restore();
+       .text(`NF-e  Nº. ${numeroFmt}  Série ${serie}`, ML + 3, y + cH - 11, { lineBreak: false }).restore();
 
     vl(ML + cTxtW, y, cH);
 
@@ -415,13 +415,13 @@ export async function downloadDANFE(req, res) {
     vl(ML + cTxtW + cDtW, y, cH);
 
     doc.save().fontSize(11).font('Helvetica-Bold').fillColor(PRETO)
-       .text('NF-e', ML + cTxtW + cDtW + 2, y + 4,
+       .text('NF-e', ML + cTxtW + cDtW + 2, y + 3,
              { width: cNfW - 4, align: 'center', lineBreak: false }).restore();
     doc.save().fontSize(7).font('Helvetica-Bold').fillColor(PRETO)
-       .text(`Nº. ${numeroFmt}`, ML + cTxtW + cDtW + 2, y + 18,
+       .text(`Nº. ${numeroFmt}`, ML + cTxtW + cDtW + 2, y + 16,
              { width: cNfW - 4, align: 'center', lineBreak: false }).restore();
     doc.save().fontSize(6.5).font('Helvetica').fillColor(PRETO)
-       .text(`Série ${serie}`, ML + cTxtW + cDtW + 2, y + 28,
+       .text(`Série ${serie}`, ML + cTxtW + cDtW + 2, y + 25,
              { width: cNfW - 4, align: 'center', lineBreak: false }).restore();
 
     y += cH;
@@ -522,14 +522,13 @@ export async function downloadDANFE(req, res) {
 
     box(ML, y, natW, rH);
     box(ML + natW, y, protW, rH);
-    // FIX #11: Natureza em bold maior, centralizada, igual ao original
     L('NATUREZA DA OPERAÇÃO', ML, y, natW);
     doc.save().fontSize(9).font('Helvetica-Bold').fillColor(PRETO)
-       .text(natOp, ML + 2, y + 9, { width: natW - 4, align: 'center', lineBreak: false }).restore();
+       .text(natOp, ML + 2, y + 6, { width: natW - 4, align: 'center', lineBreak: false }).restore();
     L('PROTOCOLO DE AUTORIZAÇÃO DE USO', ML + natW, y, protW);
     doc.save().fontSize(7.5).font('Helvetica-Bold')
        .fillColor(nota.protocolo ? VERDE : CINZA)
-       .text(protocoloDisplay, ML + natW + 2, y + 9,
+       .text(protocoloDisplay, ML + natW + 2, y + 6,
              { width: protW - 4, lineBreak: false }).restore();
     y += rH;
 
@@ -649,8 +648,8 @@ export async function downloadDANFE(req, res) {
     ].forEach(([l, v], i) => {
       box(impX(i), y, impWs[i], rH);
       L(l, impX(i), y, impWs[i]);
-      doc.save().fontSize(9).font('Helvetica-Bold').fillColor(PRETO)
-         .text(v, impX(i) + 2, y + 9, { width: impWs[i] - 4, align: 'right', lineBreak: false }).restore();
+      doc.save().fontSize(8).font('Helvetica-Bold').fillColor(PRETO)
+         .text(v, impX(i) + 2, y + 7, { width: impWs[i] - 4, align: 'right', lineBreak: false }).restore();
     });
     y += rH;
 
@@ -664,8 +663,8 @@ export async function downloadDANFE(req, res) {
     ].forEach(([l, v], i) => {
       box(impX(i), y, impWs[i], rH);
       L(l, impX(i), y, impWs[i]);
-      doc.save().fontSize(9).font('Helvetica-Bold').fillColor(PRETO)
-         .text(v, impX(i) + 2, y + 9, { width: impWs[i] - 4, align: 'right', lineBreak: false }).restore();
+      doc.save().fontSize(8).font('Helvetica-Bold').fillColor(PRETO)
+         .text(v, impX(i) + 2, y + 7, { width: impWs[i] - 4, align: 'right', lineBreak: false }).restore();
     });
     y += rH;
 
@@ -702,7 +701,7 @@ export async function downloadDANFE(req, res) {
     const trMunW = Math.floor(PW * 0.30);
     const trUf2W = 30;
     const trIe2W = PW - trEndW - trMunW - trUf2W;
-    const trR2H  = 18;
+    const trR2H  = 15;
 
     box(ML, y, trEndW, trR2H);
     box(ML + trEndW, y, trMunW, trR2H);
@@ -717,7 +716,7 @@ export async function downloadDANFE(req, res) {
     // Linha 3: Qtd | Espécie | Marca | Numeração | Peso Bruto | Peso Líquido
     const trV6  = Math.floor(PW / 6);
     const trVs  = [trV6, trV6, trV6, trV6, trV6, PW - 5 * trV6];
-    const trR3H = 18;
+    const trR3H = 15;
     let vx = ML;
     const trTransp = nota.venda?.transporte || {};
     const volQtd   = trTransp.volumes?.quantidade || 0;
@@ -762,17 +761,17 @@ export async function downloadDANFE(req, res) {
     const fixedW = cols.reduce((s, c) => s + c.w, 0);
     cols[1].w = PW - fixedW;   // coluna descrição ocupa o espaço restante
 
-    const thH = 16;
+    const thH = 13;
     let cx = ML;
     cols.forEach(c => {
       box(cx, y, c.w, thH);
-      doc.save().fontSize(5).font('Helvetica-Bold').fillColor(CINZA)
-         .text(c.h, cx + 1, y + 2, { width: c.w - 2, align: 'center', lineBreak: true }).restore();
+      doc.save().fontSize(4.5).font('Helvetica-Bold').fillColor(CINZA)
+         .text(c.h, cx + 1, y + 1.5, { width: c.w - 2, align: 'center', lineBreak: true }).restore();
       cx += c.w;
     });
     y += thH;
 
-    const rowH = 13;
+    const rowH = 11;
     // Linhas dos itens
     itens.forEach(item => {
       const row = [
@@ -795,7 +794,7 @@ export async function downloadDANFE(req, res) {
       cx = ML;
       cols.forEach((c, i) => {
         box(cx, y, c.w, rowH);
-        doc.save().fontSize(6.5).font('Helvetica').fillColor(PRETO)
+        doc.save().fontSize(6).font('Helvetica').fillColor(PRETO)
            .text(row[i], cx + 1, y + 2,
                  { width: c.w - 2, align: c.align, lineBreak: false, ellipsis: true }).restore();
         cx += c.w;
@@ -803,9 +802,9 @@ export async function downloadDANFE(req, res) {
       y += rowH;
     });
 
-    // FIX #8: Linhas vazias pontilhadas abaixo dos itens (preenche até dados adicionais)
+    // Linhas vazias pontilhadas abaixo dos itens (preenche até dados adicionais)
     const pageBottom  = 842 - 14;
-    const daNeeded    = 11 + 80 + 14 + 6;   // SH + content + footer + gap
+    const daNeeded    = 9 + 80 + 14 + 6;   // SH + content + footer + gap
     const tableBottom = pageBottom - daNeeded;
     while (y + rowH <= tableBottom) {
       cx = ML;
@@ -821,7 +820,7 @@ export async function downloadDANFE(req, res) {
     // 9. DADOS ADICIONAIS — [INFORMAÇÕES COMPLEMENTARES | RESERVADO AO FISCO]
     //    FIX #7: sem QR code (igual à original)
     // ════════════════════════════════════════════════════════════════════
-    const daHeaderH  = 11;
+    const daHeaderH  = 9;
     const daContentH = 80;
     const footerH    = 16;
     const neededH    = daHeaderH + daContentH + footerH + 4;
