@@ -1,21 +1,21 @@
-// Rondônia (RO) usa SVRS - SEFAZ Virtual do Rio Grande do Sul
-// RO não possui servidor próprio de NF-e
-// Referência: Manual de Integração NF-e v6.00, Tabela de Webservices por UF
+// Rondônia (RO) — cUF=11 — possui servidor NF-e próprio
+// Referência: Portal SEFAZ RO + Manual de Integração NF-e v6.00
+// URLs atualizadas conforme documentação oficial SEFAZ RO
 
 export const SEFAZ_RO = {
   homologacao: {
-    autorizacao:    'https://nfe-homologacao.svrs.rs.gov.br/ws/NfeAutorizacao/NFeAutorizacao4.asmx',
-    retAutorizacao: 'https://nfe-homologacao.svrs.rs.gov.br/ws/NfeRetAutorizacao/NFeRetAutorizacao4.asmx',
-    consulta:       'https://nfe-homologacao.svrs.rs.gov.br/ws/NfeConsulta2/NfeConsulta4.asmx',
-    statusServico:  'https://nfe-homologacao.svrs.rs.gov.br/ws/NfeStatusServico/NfeStatusServico4.asmx',
-    recepcaoEvento: 'https://nfe-homologacao.svrs.rs.gov.br/ws/NfeRecepcaoEvento4/NfeRecepcaoEvento4.asmx',
+    autorizacao:    'https://hnfe.sefaz.ro.gov.br/nfeweb/services/NFeAutorizacao4',
+    retAutorizacao: 'https://hnfe.sefaz.ro.gov.br/nfeweb/services/NFeRetAutorizacao4',
+    consulta:       'https://hnfe.sefaz.ro.gov.br/nfeweb/services/NFeConsultaProtocolo4',
+    statusServico:  'https://hnfe.sefaz.ro.gov.br/nfeweb/services/NFeStatusServico4',
+    recepcaoEvento: 'https://hnfe.sefaz.ro.gov.br/nfeweb/services/NFeRecepcaoEvento4',
   },
   producao: {
-    autorizacao:    'https://nfe.svrs.rs.gov.br/ws/NfeAutorizacao/NFeAutorizacao4.asmx',
-    retAutorizacao: 'https://nfe.svrs.rs.gov.br/ws/NfeRetAutorizacao/NFeRetAutorizacao4.asmx',
-    consulta:       'https://nfe.svrs.rs.gov.br/ws/NfeConsulta2/NfeConsulta4.asmx',
-    statusServico:  'https://nfe.svrs.rs.gov.br/ws/NfeStatusServico/NfeStatusServico4.asmx',
-    recepcaoEvento: 'https://nfe.svrs.rs.gov.br/ws/NfeRecepcaoEvento4/NfeRecepcaoEvento4.asmx',
+    autorizacao:    'https://nfe.sefaz.ro.gov.br/nfeweb/services/NFeAutorizacao4',
+    retAutorizacao: 'https://nfe.sefaz.ro.gov.br/nfeweb/services/NFeRetAutorizacao4',
+    consulta:       'https://nfe.sefaz.ro.gov.br/nfeweb/services/NFeConsultaProtocolo4',
+    statusServico:  'https://nfe.sefaz.ro.gov.br/nfeweb/services/NFeStatusServico4',
+    recepcaoEvento: 'https://nfe.sefaz.ro.gov.br/nfeweb/services/NFeRecepcaoEvento4',
   },
 };
 

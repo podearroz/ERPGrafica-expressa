@@ -91,6 +91,8 @@ export async function emitirNFe(req, res) {
     }
 
     // ── 4. Salva no Supabase após autorização ─────────────────────────────
+    // Salva o nfeProc (XML com protocolo embutido), não apenas o XML assinado
+    const xmlParaSalvar = resultado.nfeProcXml || xmlAssinado;
     const valor = itens.reduce((s, i) => s + parseFloat(i.valor_total || 0), 0);
     const notaSalva = await salvarNFe({
       numeroNfe:       numero,
@@ -104,7 +106,7 @@ export async function emitirNFe(req, res) {
       destinatario,
       itens,
       formaPagamento:  formaPagamento ?? '01',
-      xmlConteudo:     xmlAssinado,
+      xmlConteudo:     xmlParaSalvar,
     });
 
     console.log(`💾 NF-e salva no banco. ID: ${notaSalva.id}`);
