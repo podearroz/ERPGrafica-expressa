@@ -4,18 +4,18 @@
 
 export const SEFAZ_RO = {
   homologacao: {
-    autorizacao:    'https://nfe-homologacao.svrs.rs.gov.br/ws/NFeAutorizacao4/NFeAutorizacao4.asmx',
-    retAutorizacao: 'https://nfe-homologacao.svrs.rs.gov.br/ws/NFeRetAutorizacao4/NFeRetAutorizacao4.asmx',
-    consulta:       'https://nfe-homologacao.svrs.rs.gov.br/ws/NFeConsultaProtocolo4/NFeConsultaProtocolo4.asmx',
-    statusServico:  'https://nfe-homologacao.svrs.rs.gov.br/ws/NFeStatusServico4/NFeStatusServico4.asmx',
-    recepcaoEvento: 'https://nfe-homologacao.svrs.rs.gov.br/ws/SRecepcaoEvento4/SRecepcaoEvento4.asmx',
+    autorizacao:    'https://nfe-homologacao.svrs.rs.gov.br/ws/NfeAutorizacao/NFeAutorizacao4.asmx',
+    retAutorizacao: 'https://nfe-homologacao.svrs.rs.gov.br/ws/NfeRetAutorizacao/NFeRetAutorizacao4.asmx',
+    consulta:       'https://nfe-homologacao.svrs.rs.gov.br/ws/NfeConsulta/NfeConsulta4.asmx',
+    statusServico:  'https://nfe-homologacao.svrs.rs.gov.br/ws/NfeStatusServico/NfeStatusServico4.asmx',
+    recepcaoEvento: 'https://nfe-homologacao.svrs.rs.gov.br/ws/recepcaoevento/recepcaoevento4.asmx',
   },
   producao: {
-    autorizacao:    'https://nfe.svrs.rs.gov.br/ws/NFeAutorizacao4/NFeAutorizacao4.asmx',
-    retAutorizacao: 'https://nfe.svrs.rs.gov.br/ws/NFeRetAutorizacao4/NFeRetAutorizacao4.asmx',
-    consulta:       'https://nfe.svrs.rs.gov.br/ws/NFeConsultaProtocolo4/NFeConsultaProtocolo4.asmx',
-    statusServico:  'https://nfe.svrs.rs.gov.br/ws/NFeStatusServico4/NFeStatusServico4.asmx',
-    recepcaoEvento: 'https://nfe.svrs.rs.gov.br/ws/SRecepcaoEvento4/SRecepcaoEvento4.asmx',
+    autorizacao:    'https://nfe.svrs.rs.gov.br/ws/NfeAutorizacao/NFeAutorizacao4.asmx',
+    retAutorizacao: 'https://nfe.svrs.rs.gov.br/ws/NfeRetAutorizacao/NFeRetAutorizacao4.asmx',
+    consulta:       'https://nfe.svrs.rs.gov.br/ws/NfeConsulta/NfeConsulta4.asmx',
+    statusServico:  'https://nfe.svrs.rs.gov.br/ws/NfeStatusServico/NfeStatusServico4.asmx',
+    recepcaoEvento: 'https://nfe.svrs.rs.gov.br/ws/recepcaoevento/recepcaoevento4.asmx',
   },
 };
 
