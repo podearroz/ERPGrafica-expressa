@@ -8,29 +8,19 @@
 
 ## 1. PROBLEMAS ENCONTRADOS E CORRECOES APLICADAS
 
-### CRITICO 1 — URLs SEFAZ incorretas
+### CRITICO 1 — URLs SEFAZ corretas (SVRS)
 **Arquivo:** `src/config/sefaz-ro.js`
-**Problema:** As URLs apontavam para o SVRS (Servidor Virtual do Rio Grande do Sul), mas Rondonia possui servidor NF-e proprio desde 2020. Usar URLs erradas resulta em rejeicao de certificado ou erro de autorizacao.
+**Situacao:** Rondonia (RO) usa o autorizador SVRS (Sefaz Virtual RS) — nao possui servidor NF-e proprio. O dominio `hnfe.sefaz.ro.gov.br` nao existe e causa erro DNS `EAI_AGAIN`.
 
-**Antes:**
-```
-homologacao.autorizacao = 'https://nfe-homologacao.svrs.rs.gov.br/ws/NfeAutorizacao/NFeAutorizacao4.asmx'
-```
-
-**Depois (corrigido):**
-```
-homologacao.autorizacao = 'https://hnfe.sefaz.ro.gov.br/nfeweb/services/NFeAutorizacao4'
-```
-
-**URLs corretas para RO:**
+**URLs corretas para RO (via SVRS):**
 
 | Servico | Homologacao | Producao |
 |---------|-------------|---------|
-| Autorizacao | https://hnfe.sefaz.ro.gov.br/nfeweb/services/NFeAutorizacao4 | https://nfe.sefaz.ro.gov.br/nfeweb/services/NFeAutorizacao4 |
-| Ret. Autorizacao | https://hnfe.sefaz.ro.gov.br/nfeweb/services/NFeRetAutorizacao4 | https://nfe.sefaz.ro.gov.br/nfeweb/services/NFeRetAutorizacao4 |
-| Consulta Protocolo | https://hnfe.sefaz.ro.gov.br/nfeweb/services/NFeConsultaProtocolo4 | https://nfe.sefaz.ro.gov.br/nfeweb/services/NFeConsultaProtocolo4 |
-| Status Servico | https://hnfe.sefaz.ro.gov.br/nfeweb/services/NFeStatusServico4 | https://nfe.sefaz.ro.gov.br/nfeweb/services/NFeStatusServico4 |
-| Recepcao Evento | https://hnfe.sefaz.ro.gov.br/nfeweb/services/NFeRecepcaoEvento4 | https://nfe.sefaz.ro.gov.br/nfeweb/services/NFeRecepcaoEvento4 |
+| Autorizacao | https://nfe-homologacao.svrs.rs.gov.br/ws/NFeAutorizacao4/NFeAutorizacao4.asmx | https://nfe.svrs.rs.gov.br/ws/NFeAutorizacao4/NFeAutorizacao4.asmx |
+| Ret. Autorizacao | https://nfe-homologacao.svrs.rs.gov.br/ws/NFeRetAutorizacao4/NFeRetAutorizacao4.asmx | https://nfe.svrs.rs.gov.br/ws/NFeRetAutorizacao4/NFeRetAutorizacao4.asmx |
+| Consulta Protocolo | https://nfe-homologacao.svrs.rs.gov.br/ws/NFeConsultaProtocolo4/NFeConsultaProtocolo4.asmx | https://nfe.svrs.rs.gov.br/ws/NFeConsultaProtocolo4/NFeConsultaProtocolo4.asmx |
+| Status Servico | https://nfe-homologacao.svrs.rs.gov.br/ws/NFeStatusServico4/NFeStatusServico4.asmx | https://nfe.svrs.rs.gov.br/ws/NFeStatusServico4/NFeStatusServico4.asmx |
+| Recepcao Evento | https://nfe-homologacao.svrs.rs.gov.br/ws/SRecepcaoEvento4/SRecepcaoEvento4.asmx | https://nfe.svrs.rs.gov.br/ws/SRecepcaoEvento4/SRecepcaoEvento4.asmx |
 
 ---
 

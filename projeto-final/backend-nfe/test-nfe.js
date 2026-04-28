@@ -78,7 +78,7 @@ async function testeChave() {
 async function testeStatusSefaz() {
   sep('TESTE 3 — Status SEFAZ RO');
   info(`Ambiente: ${process.env.NODE_ENV || 'homologacao'}`);
-  info(`Endpoint: https://hnfe.sefaz.ro.gov.br/nfeweb/services/NFeStatusServico4`);
+  info(`Endpoint: https://nfe-homologacao.svrs.rs.gov.br/ws/NFeStatusServico4/NFeStatusServico4.asmx`);
   try {
     const status = await checkStatusSefaz();
     ok(`cStat:   ${status.cStat}`);

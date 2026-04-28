@@ -1,21 +1,21 @@
-// Rondônia (RO) — cUF=11 — possui servidor NF-e próprio
-// Referência: Portal SEFAZ RO + Manual de Integração NF-e v6.00
-// URLs atualizadas conforme documentação oficial SEFAZ RO
+// Rondônia (RO) — cUF=11 — usa SVRS (Sefaz Virtual RS) para NF-e
+// RO está na lista de UFs que usam o autorizador SVRS (junto com AC, AL, AP, CE, DF, ES, PA, PB, PI, RJ, RN, RR, SC, SE, TO)
+// Referência: Portal Nacional NF-e + Manual de Integração NF-e v6.00
 
 export const SEFAZ_RO = {
   homologacao: {
-    autorizacao:    'https://hnfe.sefaz.ro.gov.br/nfeweb/services/NFeAutorizacao4',
-    retAutorizacao: 'https://hnfe.sefaz.ro.gov.br/nfeweb/services/NFeRetAutorizacao4',
-    consulta:       'https://hnfe.sefaz.ro.gov.br/nfeweb/services/NFeConsultaProtocolo4',
-    statusServico:  'https://hnfe.sefaz.ro.gov.br/nfeweb/services/NFeStatusServico4',
-    recepcaoEvento: 'https://hnfe.sefaz.ro.gov.br/nfeweb/services/NFeRecepcaoEvento4',
+    autorizacao:    'https://nfe-homologacao.svrs.rs.gov.br/ws/NFeAutorizacao4/NFeAutorizacao4.asmx',
+    retAutorizacao: 'https://nfe-homologacao.svrs.rs.gov.br/ws/NFeRetAutorizacao4/NFeRetAutorizacao4.asmx',
+    consulta:       'https://nfe-homologacao.svrs.rs.gov.br/ws/NFeConsultaProtocolo4/NFeConsultaProtocolo4.asmx',
+    statusServico:  'https://nfe-homologacao.svrs.rs.gov.br/ws/NFeStatusServico4/NFeStatusServico4.asmx',
+    recepcaoEvento: 'https://nfe-homologacao.svrs.rs.gov.br/ws/SRecepcaoEvento4/SRecepcaoEvento4.asmx',
   },
   producao: {
-    autorizacao:    'https://nfe.sefaz.ro.gov.br/nfeweb/services/NFeAutorizacao4',
-    retAutorizacao: 'https://nfe.sefaz.ro.gov.br/nfeweb/services/NFeRetAutorizacao4',
-    consulta:       'https://nfe.sefaz.ro.gov.br/nfeweb/services/NFeConsultaProtocolo4',
-    statusServico:  'https://nfe.sefaz.ro.gov.br/nfeweb/services/NFeStatusServico4',
-    recepcaoEvento: 'https://nfe.sefaz.ro.gov.br/nfeweb/services/NFeRecepcaoEvento4',
+    autorizacao:    'https://nfe.svrs.rs.gov.br/ws/NFeAutorizacao4/NFeAutorizacao4.asmx',
+    retAutorizacao: 'https://nfe.svrs.rs.gov.br/ws/NFeRetAutorizacao4/NFeRetAutorizacao4.asmx',
+    consulta:       'https://nfe.svrs.rs.gov.br/ws/NFeConsultaProtocolo4/NFeConsultaProtocolo4.asmx',
+    statusServico:  'https://nfe.svrs.rs.gov.br/ws/NFeStatusServico4/NFeStatusServico4.asmx',
+    recepcaoEvento: 'https://nfe.svrs.rs.gov.br/ws/SRecepcaoEvento4/SRecepcaoEvento4.asmx',
   },
 };
 
