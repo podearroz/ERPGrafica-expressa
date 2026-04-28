@@ -10,15 +10,22 @@ let _cache = null;
 export function carregarCertificado() {
   if (_cache) return _cache;
 
-  const pfxRelativo = process.env.CERTIFICADO_PATH || './certificados/certificado.pfx';
-  const pfxPath = path.resolve(__dirname, '../../', pfxRelativo);
   const senha = process.env.CERTIFICADO_SENHA || '';
+  let pfxBuffer;
 
-  if (!fs.existsSync(pfxPath)) {
-    throw new Error(`Certificado não encontrado em: ${pfxPath}`);
+  // Suporte a certificado via variável de ambiente (base64) — usado em produção/Railway
+  if (process.env.CERTIFICADO_BASE64) {
+    pfxBuffer = Buffer.from(process.env.CERTIFICADO_BASE64, 'base64');
+  } else {
+    const pfxRelativo = process.env.CERTIFICADO_PATH || './certificados/certificado.pfx';
+    const pfxPath = path.resolve(__dirname, '../../', pfxRelativo);
+
+    if (!fs.existsSync(pfxPath)) {
+      throw new Error(`Certificado não encontrado em: ${pfxPath}`);
+    }
+
+    pfxBuffer = fs.readFileSync(pfxPath);
   }
-
-  const pfxBuffer = fs.readFileSync(pfxPath);
   const pfxDer = pfxBuffer.toString('binary');
   const p12Asn1 = forge.asn1.fromDer(pfxDer);
   const p12 = forge.pkcs12.pkcs12FromAsn1(p12Asn1, false, senha);
