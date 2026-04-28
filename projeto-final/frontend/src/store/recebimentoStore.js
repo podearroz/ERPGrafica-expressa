@@ -85,21 +85,58 @@ const useRecebimentoStore = create((set, get) => ({
       .reduce((sum, r) => sum + Math.abs(parseFloat(r.valor) || 0), 0);
   },
 
-  // Buscar recebimentos pendentes
-  getRecebimentosPendentes: async () => {
+  marcarRecebido: async (id, dados) => {
     set({ loading: true, error: null });
     try {
-      const data = await recebimentoService.getPendentes();
-      set({ loading: false });
-      return data;
+      const updated = await recebimentoService.marcarRecebido(id, dados);
+      set((state) => ({
+        recebimentos: state.recebimentos.map((r) => (r.id === id ? { ...r, ...updated } : r)),
+        loading: false,
+      }));
+      return updated;
     } catch (error) {
       set({ error: error.message, loading: false });
-      console.error("Erro ao buscar recebimentos pendentes:", error);
-      return [];
+      throw error;
     }
   },
 
-  // Agrupar recebimentos por categoria
+  marcarParcelado: async (id, dados) => {
+    set({ loading: true, error: null });
+    try {
+      await recebimentoService.marcarParcelado(id, dados);
+      // Recarrega tudo pois criou novas parcelas
+      const data = await recebimentoService.getAll();
+      set({ recebimentos: data, loading: false });
+    } catch (error) {
+      set({ error: error.message, loading: false });
+      throw error;
+    }
+  },
+
+  marcarNaoPago: async (id) => {
+    set({ loading: true, error: null });
+    try {
+      const updated = await recebimentoService.marcarNaoPago(id);
+      set((state) => ({
+        recebimentos: state.recebimentos.map((r) => (r.id === id ? { ...r, ...updated } : r)),
+        loading: false,
+      }));
+    } catch (error) {
+      set({ error: error.message, loading: false });
+      throw error;
+    }
+  },
+
+  getTotalRecebido: () =>
+    get().recebimentos
+      .filter((r) => r.tipo === "entrada" && r.status === "Recebido")
+      .reduce((sum, r) => sum + (parseFloat(r.valor) || 0), 0),
+
+  getTotalPendente: () =>
+    get().recebimentos
+      .filter((r) => r.tipo === "entrada" && r.status !== "Recebido")
+      .reduce((sum, r) => sum + (parseFloat(r.valor) || 0), 0),
+
   getRecebimentosByCategoria: () => {
     return get().recebimentos.reduce((acc, r) => {
       const categoria = r.categoria || "Outros";

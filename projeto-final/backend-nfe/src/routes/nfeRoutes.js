@@ -1,12 +1,13 @@
 import express from 'express';
-import { emitirNFe, consultarNFe, cancelarNFe, downloadXML, downloadDANFE } from '../controllers/nfeController.js';
+import { emitirNFe, consultarNFe, cancelarNFe, downloadXML, downloadDANFE, statusSefaz } from '../controllers/nfeController.js';
 
 const router = express.Router();
 
-router.post('/emitir', emitirNFe);
-router.get('/consultar/:chave', consultarNFe);
-router.post('/cancelar/:chave', cancelarNFe);
-router.get('/xml/:chave', downloadXML);
-router.get('/danfe/:chave', downloadDANFE);
+router.get('/status',          statusSefaz);       // Verifica se a SEFAZ está online
+router.post('/emitir',         emitirNFe);          // Emite NF-e real
+router.get('/consultar/:chave', consultarNFe);      // Consulta NF-e na SEFAZ
+router.post('/cancelar/:chave', cancelarNFe);       // Cancela NF-e
+router.get('/xml/:chave',      downloadXML);        // Download XML assinado
+router.post('/danfe',          downloadDANFE);      // Gera DANFE em PDF
 
 export default router;

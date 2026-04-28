@@ -1,30 +1,39 @@
 import React, { useEffect } from 'react';
-import { ShoppingCart, TrendingUp, TrendingDown, DollarSign } from 'lucide-react';
+import { ShoppingCart, TrendingUp, TrendingDown, DollarSign, ClipboardList, Package, AlertTriangle } from 'lucide-react';
 import useVendaStore from '@store/vendaStore';
 import useRecebimentoStore from '@store/recebimentoStore';
 import usePagamentoStore from '@store/pagamentoStore';
 import useClienteStore from '@store/clienteStore';
+import useOrdemServicoStore from '@store/ordemServicoStore';
+import useProdutoStore from '@store/produtoStore';
 import Card from '@components/common/Card';
 
 const Dashboard = () => {
   const { vendas, getTotalVendas, fetchVendas } = useVendaStore();
-  const { getTotalEntradas, fetchRecebimentos } = useRecebimentoStore();
+  const { getTotalRecebido, getTotalPendente, fetchRecebimentos } = useRecebimentoStore();
   const { getTotalPagamentos, fetchPagamentos, pagamentos } = usePagamentoStore();
   const { clientes, fetchClientes } = useClienteStore();
-  
+  const { fetchOrdensServico, getOSAbertas } = useOrdemServicoStore();
+  const { fetchProdutos, getProdutosEstoqueBaixo } = useProdutoStore();
+
   useEffect(() => {
     fetchVendas();
     fetchRecebimentos();
     fetchPagamentos();
     fetchClientes();
+    fetchOrdensServico();
+    fetchProdutos();
   }, []);
-  
+
   const totalVendas = getTotalVendas();
-  const totalRecebimentos = getTotalEntradas();
+  const totalRecebido = getTotalRecebido();
+  const totalPendente = getTotalPendente();
   const totalPagamentos = getTotalPagamentos();
-  const saldoAtual = totalRecebimentos - totalPagamentos;
+  const saldoAtual = totalRecebido - totalPagamentos;
   const pagamentosPendentes = pagamentos.filter(p => p.status === 'pendente');
-  
+  const osAbertas = getOSAbertas();
+  const produtosEstoqueBaixo = getProdutosEstoqueBaixo();
+
   const vendasRecentes = vendas.slice(0, 5);
   
   return (
@@ -41,18 +50,20 @@ const Dashboard = () => {
           </div>
           <div className="text-xs text-slate-500 mt-1">{vendas.length} vendas</div>
         </Card>
-        
+
         <Card className="p-6">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-slate-600 text-sm font-medium">Recebimentos</span>
+            <span className="text-slate-600 text-sm font-medium">Recebido</span>
             <TrendingUp className="w-5 h-5 text-green-500" />
           </div>
           <div className="text-2xl font-bold text-green-600">
-            R$ {totalRecebimentos.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+            R$ {totalRecebido.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
           </div>
-          <div className="text-xs text-slate-500 mt-1">Entradas</div>
+          <div className="text-xs text-slate-500 mt-1">
+            Pendente: R$ {totalPendente.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+          </div>
         </Card>
-        
+
         <Card className="p-6">
           <div className="flex items-center justify-between mb-2">
             <span className="text-slate-600 text-sm font-medium">Pagamentos</span>
@@ -63,7 +74,7 @@ const Dashboard = () => {
           </div>
           <div className="text-xs text-slate-500 mt-1">Saídas</div>
         </Card>
-        
+
         <Card className="p-6 bg-gradient-to-br from-blue-500 to-blue-600 text-white border-0">
           <div className="flex items-center justify-between mb-2">
             <span className="text-blue-100 text-sm font-medium">Saldo Atual</span>
@@ -72,7 +83,44 @@ const Dashboard = () => {
           <div className="text-2xl font-bold">
             R$ {saldoAtual.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
           </div>
-          <div className="text-xs text-blue-100 mt-1">Disponível</div>
+          <div className="text-xs text-blue-100 mt-1">Recebido − Pago</div>
+        </Card>
+      </div>
+
+      {/* OS e Estoque */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <Card className="p-6">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-slate-600 text-sm font-medium">Ordens de Serviço Abertas</span>
+            <ClipboardList className="w-5 h-5 text-indigo-500" />
+          </div>
+          <div className="text-3xl font-bold text-indigo-700">{osAbertas.length}</div>
+          {osAbertas.length > 0 ? (
+            <div className="text-xs text-slate-500 mt-1">
+              Total: R$ {osAbertas.reduce((s, os) => s + parseFloat(os.valor_final || 0), 0)
+                .toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+            </div>
+          ) : (
+            <div className="text-xs text-green-600 mt-1">Nenhuma OS pendente</div>
+          )}
+        </Card>
+
+        <Card className="p-6">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-slate-600 text-sm font-medium">Estoque Baixo / Zerado</span>
+            {produtosEstoqueBaixo.length > 0
+              ? <AlertTriangle className="w-5 h-5 text-yellow-500" />
+              : <Package className="w-5 h-5 text-slate-400" />
+            }
+          </div>
+          <div className={`text-3xl font-bold ${produtosEstoqueBaixo.length > 0 ? 'text-yellow-600' : 'text-slate-400'}`}>
+            {produtosEstoqueBaixo.length}
+          </div>
+          <div className={`text-xs mt-1 ${produtosEstoqueBaixo.length > 0 ? 'text-yellow-600' : 'text-slate-500'}`}>
+            {produtosEstoqueBaixo.length > 0
+              ? `produto(s) abaixo do mínimo`
+              : 'Todos os estoques OK'}
+          </div>
         </Card>
       </div>
       
@@ -82,7 +130,7 @@ const Dashboard = () => {
           <div className="p-6">
             <div className="space-y-3">
               {vendasRecentes.map(venda => {
-                const cliente = clientes.find(c => c.id === venda.clienteId);
+                const cliente = clientes.find(c => c.id === (venda.cliente_id || venda.clienteId));
                 return (
                   <div key={venda.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
                     <div>

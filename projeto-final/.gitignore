@@ -1,0 +1,20 @@
+# Historico do VS Code (Local History extension)
+.history/
+
+# Variaveis de ambiente
+.env
+.env.local
+.env.*.local
+
+# Dependencias
+node_modules/
+
+# Certificados
+certificados/*.pfx
+certificados/*.p12
+
+# Logs
+*.log
+
+# Claude Code
+.claude/

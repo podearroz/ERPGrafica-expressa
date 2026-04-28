@@ -7,3 +7,4 @@ storage/pdf/*
 !storage/xml/.gitkeep
 !storage/pdf/.gitkeep
 *.log
+.env.example

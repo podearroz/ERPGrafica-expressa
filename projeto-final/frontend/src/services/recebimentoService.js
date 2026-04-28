@@ -4,30 +4,16 @@ export const recebimentoService = {
   async getAll() {
     const { data, error } = await supabase
       .from("recebimentos")
-      .select("*")
+      .select("*, venda:vendas(id, produtos, cliente_id, cliente:clientes(nome))")
       .order("data", { ascending: false });
     if (error) throw error;
     return data;
   },
 
-  async getById(id) {
-    const { data, error } = await supabase
-      .from("recebimentos")
-      .select("*")
-      .eq("id", id)
-      .single();
-    if (error) throw error;
-    return data;
-  },
-
   async create(recebimento) {
-    const recebimentoData = {
-      ...recebimento,
-      user_id: null,
-    };
     const { data, error } = await supabase
       .from("recebimentos")
-      .insert([recebimentoData])
+      .insert([{ ...recebimento, user_id: null }])
       .select()
       .single();
     if (error) throw error;
@@ -51,34 +37,93 @@ export const recebimentoService = {
     return true;
   },
 
-  async getPendentes() {
-    const { data, error } = await supabase
-      .from("recebimentos")
-      .select("*")
-      .eq("tipo", "entrada")
-      .order("data", { ascending: true });
-    if (error) throw error;
-    return data;
+  async criarDeVenda(venda, os, clienteNome) {
+    return recebimentoService.create({
+      venda_id: venda.id,
+      os_id: os?.id || null,
+      data: venda.data || new Date().toISOString().split("T")[0],
+      valor: parseFloat(venda.valor),
+      tipo: "entrada",
+      descricao: `Venda – ${venda.produtos || "Produtos/Serviços"}`,
+      categoria: "Venda",
+      status: "Não Pago",
+      forma_recebimento: venda.forma_pagamento || null,
+      cliente_nome: clienteNome || null,
+      parcelas: 1,
+      parcela_atual: 1,
+    });
   },
 
-  async getByCliente(clienteId) {
-    const { data, error } = await supabase
-      .from("recebimentos")
-      .select("*")
-      .eq("venda_id", clienteId)
-      .order("data", { ascending: false });
-    if (error) throw error;
-    return data;
+  async marcarRecebido(id, { forma_recebimento, data_recebimento, observacao }) {
+    return recebimentoService.update(id, {
+      status: "Recebido",
+      forma_recebimento,
+      data_recebimento: data_recebimento || new Date().toISOString().split("T")[0],
+      observacao,
+    });
   },
 
-  async getByPeriodo(dataInicio, dataFim) {
-    const { data, error } = await supabase
+  async marcarParcelado(id, { parcelas, forma_recebimento, data_primeira, observacao }) {
+    // Busca o recebimento original
+    const { data: original, error } = await supabase
       .from("recebimentos")
       .select("*")
-      .gte("data", dataInicio)
-      .lte("data", dataFim)
-      .order("data", { ascending: false });
+      .eq("id", id)
+      .single();
     if (error) throw error;
-    return data;
+
+    const valorParcela = parseFloat((original.valor / parcelas).toFixed(2));
+
+    // Atualiza o original para a parcela 1
+    await recebimentoService.update(id, {
+      status: "Parcelado",
+      parcelas,
+      parcela_atual: 1,
+      forma_recebimento,
+      data_recebimento: data_primeira,
+      valor: valorParcela,
+      observacao,
+    });
+
+    // Cria parcelas 2..N
+    const novos = [];
+    for (let i = 2; i <= parcelas; i++) {
+      const dataVenc = new Date(data_primeira);
+      dataVenc.setMonth(dataVenc.getMonth() + (i - 1));
+      novos.push({
+        user_id: null,
+        venda_id: original.venda_id,
+        os_id: original.os_id,
+        data: dataVenc.toISOString().split("T")[0],
+        valor: valorParcela,
+        tipo: "entrada",
+        descricao: `${original.descricao} (${i}/${parcelas})`,
+        categoria: original.categoria,
+        status: "Não Pago",
+        forma_recebimento,
+        cliente_nome: original.cliente_nome,
+        parcelas,
+        parcela_atual: i,
+        observacao,
+      });
+    }
+
+    if (novos.length > 0) {
+      const { error: insertError } = await supabase.from("recebimentos").insert(novos);
+      if (insertError) throw insertError;
+    }
+
+    // Atualiza descrição da parcela 1
+    await recebimentoService.update(id, {
+      descricao: `${original.descricao} (1/${parcelas})`,
+    });
+  },
+
+  async marcarNaoPago(id) {
+    return recebimentoService.update(id, {
+      status: "Não Pago",
+      forma_recebimento: null,
+      data_recebimento: null,
+    });
   },
 };

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Edit, Trash2, Save } from 'lucide-react';
+import { Plus, Edit, Trash2, Save, CheckCircle, CreditCard, XCircle, RotateCcw } from 'lucide-react';
 import useRecebimentoStore from '@store/recebimentoStore';
 import Card from '@components/common/Card';
 import Button from '@components/common/Button';
@@ -8,219 +8,394 @@ import Modal from '@components/common/Modal';
 import Input from '@components/common/Input';
 import toast from 'react-hot-toast';
 
+// ─── Config ──────────────────────────────────────────────────────────────────
+const FORMAS = ['Dinheiro', 'PIX', 'Cartão de Crédito', 'Cartão de Débito', 'Boleto', 'Cheque', 'Transferência'];
+
+const STATUS_CFG = {
+  'Recebido':  { label: 'Recebido',  className: 'bg-green-100 text-green-700' },
+  'Parcelado': { label: 'Parcelado', className: 'bg-blue-100 text-blue-700' },
+  'Não Pago':  { label: 'Não Pago',  className: 'bg-red-100 text-red-700' },
+};
+
+const BadgeStatus = ({ status }) => {
+  const cfg = STATUS_CFG[status] || { label: status, className: 'bg-slate-100 text-slate-600' };
+  return <span className={`px-2 py-1 rounded-full text-xs font-medium ${cfg.className}`}>{cfg.label}</span>;
+};
+
+const FORM_VAZIO = {
+  data: new Date().toISOString().split('T')[0],
+  valor: '', tipo: 'entrada', descricao: '', categoria: 'Venda', status: 'Não Pago',
+};
+
+// ─── Página ───────────────────────────────────────────────────────────────────
 const Recebimentos = () => {
-  const { recebimentos, addRecebimento, updateRecebimento, deleteRecebimento, fetchRecebimentos, loading } = useRecebimentoStore();
-  
-  useEffect(() => {
-    fetchRecebimentos();
-  }, []);
-  const [showModal, setShowModal] = useState(false);
-  const [editingRecebimento, setEditingRecebimento] = useState(null);
-  const [formData, setFormData] = useState({
-    data: new Date().toISOString().split('T')[0],
-    valor: '',
-    tipo: 'entrada',
-    descricao: '',
-    categoria: ''
+  const {
+    recebimentos, loading, fetchRecebimentos,
+    addRecebimento, updateRecebimento, deleteRecebimento,
+    marcarRecebido, marcarParcelado, marcarNaoPago,
+    getTotalRecebido, getTotalPendente,
+  } = useRecebimentoStore();
+
+  const [filtroStatus, setFiltroStatus] = useState('TODOS');
+  const [showFormModal, setShowFormModal] = useState(false);
+  const [showRecebidoModal, setShowRecebidoModal] = useState(false);
+  const [showParceladoModal, setShowParceladoModal] = useState(false);
+  const [editingRec, setEditingRec] = useState(null);
+  const [recSelecionado, setRecSelecionado] = useState(null);
+  const [formData, setFormData] = useState(FORM_VAZIO);
+
+  // Recebido
+  const [recebidoForm, setRecebidoForm] = useState({
+    forma_recebimento: 'PIX',
+    data_recebimento: new Date().toISOString().split('T')[0],
+    observacao: '',
   });
 
-  const headers = [
-    { label: 'Data' },
-    { label: 'Descrição' },
-    { label: 'Categoria' },
-    { label: 'Tipo' },
-    { label: 'Valor' },
-    { label: 'Ações', align: 'right' }
-  ];
+  // Parcelado
+  const [parceladoForm, setParceladoForm] = useState({
+    parcelas: '2',
+    forma_recebimento: 'Cartão de Crédito',
+    data_primeira: new Date().toISOString().split('T')[0],
+    observacao: '',
+  });
 
-  const openModal = (recebimento = null) => {
-    if (recebimento) {
-      setEditingRecebimento(recebimento);
-      setFormData(recebimento);
-    } else {
-      setEditingRecebimento(null);
-      setFormData({
-        data: new Date().toISOString().split('T')[0],
-        valor: '',
-        tipo: 'entrada',
-        descricao: '',
-        categoria: ''
-      });
-    }
-    setShowModal(true);
+  useEffect(() => { fetchRecebimentos(); }, []);
+
+  // Filtro + ordenação
+  const lista = (filtroStatus === 'TODOS' ? recebimentos : recebimentos.filter(r => r.status === filtroStatus))
+    .filter(r => r.tipo === 'entrada' || !r.tipo);
+
+  const contadores = {
+    TODOS:      recebimentos.filter(r => r.tipo === 'entrada' || !r.tipo).length,
+    'Não Pago': recebimentos.filter(r => r.status === 'Não Pago').length,
+    'Parcelado':recebimentos.filter(r => r.status === 'Parcelado').length,
+    'Recebido': recebimentos.filter(r => r.status === 'Recebido').length,
   };
 
-  const closeModal = () => {
-    setShowModal(false);
-    setEditingRecebimento(null);
+  const totalRecebido = getTotalRecebido();
+  const totalPendente = getTotalPendente();
+
+  // ── Helpers de nome do cliente ──────────────────────────────────────────
+  const nomeCliente = (rec) =>
+    rec.cliente_nome || rec.venda?.cliente?.nome || '—';
+
+  // ── Handlers Form ────────────────────────────────────────────────────────
+  const abrirFormModal = (rec = null) => {
+    if (rec) {
+      setEditingRec(rec);
+      setFormData({
+        data: rec.data, valor: rec.valor, tipo: rec.tipo,
+        descricao: rec.descricao, categoria: rec.categoria, status: rec.status,
+      });
+    } else {
+      setEditingRec(null);
+      setFormData(FORM_VAZIO);
+    }
+    setShowFormModal(true);
   };
 
   const handleSave = async () => {
     if (!formData.data || !formData.valor || !formData.descricao || !formData.categoria) {
-      toast.error('Preencha todos os campos obrigatórios!');
-      return;
+      toast.error('Preencha todos os campos obrigatórios!'); return;
     }
-
-    const recebimentoData = {
-      ...formData,
-      valor: parseFloat(formData.valor)
-    };
-
     try {
-      if (editingRecebimento) {
-        await updateRecebimento(editingRecebimento.id, recebimentoData);
-        toast.success('Recebimento atualizado com sucesso!');
+      const payload = { ...formData, valor: parseFloat(formData.valor) };
+      if (editingRec) {
+        await updateRecebimento(editingRec.id, payload);
+        toast.success('Recebimento atualizado!');
       } else {
-        await addRecebimento(recebimentoData);
-        toast.success('Recebimento cadastrado com sucesso!');
+        await addRecebimento(payload);
+        toast.success('Recebimento cadastrado!');
       }
-      closeModal();
-    } catch (error) {
-      toast.error('Erro ao salvar recebimento. Tente novamente.');
-    }
+      setShowFormModal(false);
+    } catch { toast.error('Erro ao salvar recebimento.'); }
   };
 
   const handleDelete = async (id) => {
-    if (confirm('Tem certeza que deseja excluir este recebimento?')) {
-      try {
-        await deleteRecebimento(id);
-        toast.success('Recebimento excluído com sucesso!');
-      } catch (error) {
-        toast.error('Erro ao excluir recebimento.');
-      }
-    }
+    if (!confirm('Excluir este recebimento?')) return;
+    try {
+      await deleteRecebimento(id);
+      toast.success('Recebimento excluído!');
+    } catch { toast.error('Erro ao excluir.'); }
   };
 
-  const handleInputChange = (field, value) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
+  // ── Marcar Recebido ──────────────────────────────────────────────────────
+  const abrirRecebido = (rec) => {
+    setRecSelecionado(rec);
+    setRecebidoForm({
+      forma_recebimento: rec.forma_recebimento || 'PIX',
+      data_recebimento: new Date().toISOString().split('T')[0],
+      observacao: '',
+    });
+    setShowRecebidoModal(true);
   };
+
+  const handleMarcarRecebido = async () => {
+    try {
+      await marcarRecebido(recSelecionado.id, recebidoForm);
+      toast.success('Recebimento confirmado!');
+      setShowRecebidoModal(false);
+    } catch (e) { toast.error(e.message); }
+  };
+
+  // ── Marcar Parcelado ─────────────────────────────────────────────────────
+  const abrirParcelado = (rec) => {
+    setRecSelecionado(rec);
+    setParceladoForm({
+      parcelas: '2',
+      forma_recebimento: 'Cartão de Crédito',
+      data_primeira: new Date().toISOString().split('T')[0],
+      observacao: '',
+    });
+    setShowParceladoModal(true);
+  };
+
+  const handleMarcarParcelado = async () => {
+    const n = parseInt(parceladoForm.parcelas);
+    if (!n || n < 2) { toast.error('Informe pelo menos 2 parcelas.'); return; }
+    try {
+      await marcarParcelado(recSelecionado.id, { ...parceladoForm, parcelas: n });
+      toast.success(`Dividido em ${n}x parcelas!`);
+      setShowParceladoModal(false);
+    } catch (e) { toast.error(e.message); }
+  };
+
+  const handleMarcarNaoPago = async (id) => {
+    try {
+      await marcarNaoPago(id);
+      toast.success('Marcado como Não Pago.');
+    } catch (e) { toast.error(e.message); }
+  };
+
+  const valorParcela = () => {
+    if (!recSelecionado || !parceladoForm.parcelas) return 0;
+    return (parseFloat(recSelecionado.valor) / parseInt(parceladoForm.parcelas)).toFixed(2);
+  };
+
+  const headers = [
+    { label: 'Data Venc.' },
+    { label: 'Cliente' },
+    { label: 'Descrição' },
+    { label: 'Parcela' },
+    { label: 'Valor' },
+    { label: 'Status' },
+    { label: 'Ações', align: 'right' },
+  ];
+
+  const abas = [
+    { key: 'TODOS',      label: 'Todos' },
+    { key: 'Não Pago',   label: 'Não Pagos' },
+    { key: 'Parcelado',  label: 'Parcelados' },
+    { key: 'Recebido',   label: 'Recebidos' },
+  ];
 
   return (
-    <div>
+    <div className="space-y-4">
+      {/* Cards de resumo */}
+      <div className="grid grid-cols-2 gap-4">
+        <div className="bg-green-50 border border-green-100 rounded-xl p-4">
+          <p className="text-sm text-green-600 font-medium">Total Recebido</p>
+          <p className="text-2xl font-bold text-green-700 mt-1">
+            R$ {totalRecebido.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+          </p>
+        </div>
+        <div className="bg-red-50 border border-red-100 rounded-xl p-4">
+          <p className="text-sm text-red-600 font-medium">Total Pendente</p>
+          <p className="text-2xl font-bold text-red-700 mt-1">
+            R$ {totalPendente.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+          </p>
+        </div>
+      </div>
+
       <Card>
         <div className="p-6 border-b border-slate-200">
           <div className="flex items-center justify-between">
-            <h2 className="text-xl font-bold text-slate-800">Recebimentos</h2>
-            <Button icon={Plus} variant="success" onClick={() => openModal()}>
-              Novo Recebimento
-            </Button>
+            <div>
+              <h2 className="text-xl font-bold text-slate-800">Recebimentos</h2>
+              <div className="flex gap-4 mt-2">
+                {abas.map(aba => (
+                  <button key={aba.key} onClick={() => setFiltroStatus(aba.key)}
+                    className={`text-sm font-medium pb-1 border-b-2 transition-colors ${
+                      filtroStatus === aba.key ? 'border-blue-500 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700'
+                    }`}>
+                    {aba.label}
+                    <span className="ml-1 text-xs opacity-70">({contadores[aba.key] ?? 0})</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+            <Button icon={Plus} onClick={() => abrirFormModal()}>Novo Recebimento</Button>
           </div>
         </div>
 
         <Table headers={headers}>
-          {recebimentos.length > 0 ? (
-            recebimentos.map(recebimento => (
-              <tr key={recebimento.id} className="hover:bg-slate-50">
-                <td className="px-6 py-4 text-sm text-slate-600">
-                  {new Date(recebimento.data).toLocaleDateString('pt-BR')}
-                </td>
-                <td className="px-6 py-4 text-sm font-medium text-slate-800">
-                  {recebimento.descricao}
-                </td>
-                <td className="px-6 py-4 text-sm text-slate-600">
-                  {recebimento.categoria}
-                </td>
-                <td className="px-6 py-4 text-sm">
-                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                    recebimento.tipo === 'entrada' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
-                  }`}>
-                    {recebimento.tipo === 'entrada' ? 'Entrada' : 'Saída'}
-                  </span>
-                </td>
-                <td className="px-6 py-4 text-sm font-semibold">
-                  <span className={recebimento.tipo === 'entrada' ? 'text-green-600' : 'text-red-600'}>
-                    {recebimento.tipo === 'entrada' ? '+' : '-'} R$ {recebimento.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                  </span>
-                </td>
-                <td className="px-6 py-4 text-sm text-right">
-                  <button
-                    onClick={() => openModal(recebimento)}
-                    className="text-blue-600 hover:text-blue-700 mr-3"
-                    title="Editar"
-                  >
-                    <Edit className="w-4 h-4" />
+          {lista.length > 0 ? lista.map(rec => (
+            <tr key={rec.id} className="hover:bg-slate-50">
+              <td className="px-6 py-4 text-sm text-slate-600">
+                {rec.data ? new Date(rec.data + 'T00:00:00').toLocaleDateString('pt-BR') : '—'}
+              </td>
+              <td className="px-6 py-4 text-sm font-medium text-slate-800">{nomeCliente(rec)}</td>
+              <td className="px-6 py-4 text-sm text-slate-600 max-w-xs truncate" title={rec.descricao}>
+                {rec.descricao}
+              </td>
+              <td className="px-6 py-4 text-sm text-slate-500 text-center">
+                {rec.parcelas > 1 ? `${rec.parcela_atual}/${rec.parcelas}` : '—'}
+              </td>
+              <td className="px-6 py-4 text-sm font-semibold text-green-700">
+                R$ {parseFloat(rec.valor).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              </td>
+              <td className="px-6 py-4 text-sm">
+                <BadgeStatus status={rec.status || 'Não Pago'} />
+                {rec.data_recebimento && rec.status === 'Recebido' && (
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    em {new Date(rec.data_recebimento + 'T00:00:00').toLocaleDateString('pt-BR')}
+                    {rec.forma_recebimento ? ` · ${rec.forma_recebimento}` : ''}
+                  </p>
+                )}
+              </td>
+              <td className="px-6 py-4 text-sm text-right space-x-1">
+                {rec.status !== 'Recebido' && (
+                  <>
+                    <button onClick={() => abrirRecebido(rec)}
+                      className="inline-flex items-center gap-1 px-2 py-1 text-xs rounded bg-green-50 text-green-700 hover:bg-green-100 font-medium"
+                      title="Marcar como Recebido">
+                      <CheckCircle className="w-3 h-3" /> Recebido
+                    </button>
+                    {rec.status !== 'Parcelado' && rec.parcelas <= 1 && (
+                      <button onClick={() => abrirParcelado(rec)}
+                        className="inline-flex items-center gap-1 px-2 py-1 text-xs rounded bg-blue-50 text-blue-700 hover:bg-blue-100 font-medium"
+                        title="Parcelar">
+                        <CreditCard className="w-3 h-3" /> Parcelar
+                      </button>
+                    )}
+                  </>
+                )}
+                {rec.status === 'Recebido' && (
+                  <button onClick={() => handleMarcarNaoPago(rec.id)}
+                    className="inline-flex items-center gap-1 px-2 py-1 text-xs rounded bg-slate-100 text-slate-600 hover:bg-slate-200 font-medium"
+                    title="Desfazer recebimento">
+                    <RotateCcw className="w-3 h-3" /> Desfazer
                   </button>
-                  <button
-                    onClick={() => handleDelete(recebimento.id)}
-                    className="text-red-600 hover:text-red-700"
-                    title="Excluir"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </td>
-              </tr>
-            ))
-          ) : (
+                )}
+                <button onClick={() => abrirFormModal(rec)} className="text-blue-500 hover:text-blue-700 ml-1" title="Editar">
+                  <Edit className="w-4 h-4" />
+                </button>
+                <button onClick={() => handleDelete(rec.id)} className="text-red-500 hover:text-red-700 ml-1" title="Excluir">
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </td>
+            </tr>
+          )) : (
             <tr>
-              <td colSpan={6} className="px-6 py-12 text-center text-slate-500">
-                Nenhum recebimento cadastrado
+              <td colSpan={7} className="px-6 py-12 text-center text-slate-500">
+                Nenhum recebimento encontrado
               </td>
             </tr>
           )}
         </Table>
       </Card>
 
-      {/* Modal */}
-      <Modal
-        isOpen={showModal}
-        onClose={closeModal}
-        title={editingRecebimento ? 'Editar Recebimento' : 'Novo Recebimento'}
+      {/* Modal: Cadastro/Edição manual */}
+      <Modal isOpen={showFormModal} onClose={() => setShowFormModal(false)}
+        title={editingRec ? 'Editar Recebimento' : 'Novo Recebimento'}
         footer={
-          <>
-            <Button variant="secondary" onClick={closeModal}>
-              Cancelar
-            </Button>
-            <Button icon={Save} onClick={handleSave}>
-              Salvar
-            </Button>
-          </>
-        }
-      >
+          <><Button variant="secondary" onClick={() => setShowFormModal(false)}>Cancelar</Button>
+          <Button icon={Save} onClick={handleSave} disabled={loading}>Salvar</Button></>
+        }>
         <div className="space-y-4">
-          <Input
-            label="Data *"
-            type="date"
-            value={formData.data}
-            onChange={(e) => handleInputChange('data', e.target.value)}
-          />
-
-          <Input
-            label="Descrição *"
-            value={formData.descricao}
-            onChange={(e) => handleInputChange('descricao', e.target.value)}
-            placeholder="Ex: Pagamento de cliente"
-          />
-
-          <Input
-            label="Categoria *"
-            value={formData.categoria}
-            onChange={(e) => handleInputChange('categoria', e.target.value)}
-            placeholder="Ex: Venda, Serviço, Outros"
-          />
-
+          <Input label="Data *" type="date" value={formData.data} onChange={e => setFormData(p => ({ ...p, data: e.target.value }))} />
+          <Input label="Descrição *" value={formData.descricao} onChange={e => setFormData(p => ({ ...p, descricao: e.target.value }))} placeholder="Ex: Pagamento de cliente" />
+          <Input label="Categoria *" value={formData.categoria} onChange={e => setFormData(p => ({ ...p, categoria: e.target.value }))} placeholder="Ex: Venda, Serviço" />
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
-              Tipo *
-            </label>
-            <select
-              value={formData.tipo}
-              onChange={(e) => handleInputChange('tipo', e.target.value)}
-              className="input"
-            >
-              <option value="entrada">Entrada</option>
-              <option value="saida">Saída</option>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Status</label>
+            <select className="input" value={formData.status} onChange={e => setFormData(p => ({ ...p, status: e.target.value }))}>
+              <option>Não Pago</option><option>Parcelado</option><option>Recebido</option>
             </select>
           </div>
-
-          <Input
-            label="Valor (R$) *"
-            type="number"
-            step="0.01"
-            value={formData.valor}
-            onChange={(e) => handleInputChange('valor', e.target.value)}
-            placeholder="0.00"
-          />
+          <Input label="Valor (R$) *" type="number" step="0.01" value={formData.valor} onChange={e => setFormData(p => ({ ...p, valor: e.target.value }))} placeholder="0.00" />
         </div>
+      </Modal>
+
+      {/* Modal: Marcar como Recebido */}
+      <Modal isOpen={showRecebidoModal} onClose={() => setShowRecebidoModal(false)}
+        title="Confirmar Recebimento"
+        footer={
+          <><Button variant="secondary" onClick={() => setShowRecebidoModal(false)}>Cancelar</Button>
+          <Button icon={CheckCircle} onClick={handleMarcarRecebido} disabled={loading}>Confirmar</Button></>
+        }>
+        {recSelecionado && (
+          <div className="space-y-4">
+            <div className="bg-green-50 border border-green-100 rounded-lg p-3 text-sm">
+              <p className="text-slate-600">{recSelecionado.descricao}</p>
+              <p className="text-2xl font-bold text-green-700 mt-1">
+                R$ {parseFloat(recSelecionado.valor).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              </p>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Forma de Recebimento *</label>
+              <select className="input" value={recebidoForm.forma_recebimento}
+                onChange={e => setRecebidoForm(p => ({ ...p, forma_recebimento: e.target.value }))}>
+                {FORMAS.map(f => <option key={f}>{f}</option>)}
+              </select>
+            </div>
+            <Input label="Data do Recebimento *" type="date" value={recebidoForm.data_recebimento}
+              onChange={e => setRecebidoForm(p => ({ ...p, data_recebimento: e.target.value }))} />
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Observação</label>
+              <textarea className="input resize-none" rows={2} value={recebidoForm.observacao}
+                onChange={e => setRecebidoForm(p => ({ ...p, observacao: e.target.value }))}
+                placeholder="Ex: Depósito conta corrente..." />
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      {/* Modal: Parcelar */}
+      <Modal isOpen={showParceladoModal} onClose={() => setShowParceladoModal(false)}
+        title="Parcelar Recebimento"
+        footer={
+          <><Button variant="secondary" onClick={() => setShowParceladoModal(false)}>Cancelar</Button>
+          <Button icon={CreditCard} onClick={handleMarcarParcelado} disabled={loading}>Parcelar</Button></>
+        }>
+        {recSelecionado && (
+          <div className="space-y-4">
+            <div className="bg-blue-50 border border-blue-100 rounded-lg p-3 text-sm">
+              <p className="text-slate-600">{recSelecionado.descricao}</p>
+              <p className="text-lg font-bold text-slate-800 mt-1">
+                Total: R$ {parseFloat(recSelecionado.valor).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              </p>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <Input label="Número de Parcelas *" type="number" min="2" max="60"
+                value={parceladoForm.parcelas}
+                onChange={e => setParceladoForm(p => ({ ...p, parcelas: e.target.value }))} />
+              <div>
+                <p className="text-sm font-medium text-slate-700 mb-1">Valor por Parcela</p>
+                <div className="input bg-slate-50 text-slate-700 font-semibold">
+                  R$ {parseFloat(valorParcela()).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                </div>
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Forma de Recebimento *</label>
+              <select className="input" value={parceladoForm.forma_recebimento}
+                onChange={e => setParceladoForm(p => ({ ...p, forma_recebimento: e.target.value }))}>
+                {FORMAS.map(f => <option key={f}>{f}</option>)}
+              </select>
+            </div>
+            <Input label="Data da 1ª Parcela *" type="date" value={parceladoForm.data_primeira}
+              onChange={e => setParceladoForm(p => ({ ...p, data_primeira: e.target.value }))} />
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Observação</label>
+              <textarea className="input resize-none" rows={2} value={parceladoForm.observacao}
+                onChange={e => setParceladoForm(p => ({ ...p, observacao: e.target.value }))}
+                placeholder="Ex: Cartão parcelado em 3x sem juros..." />
+            </div>
+            <p className="text-xs text-slate-400">
+              Serão criadas {parceladoForm.parcelas || '?'} entradas mensais a partir da data selecionada.
+            </p>
+          </div>
+        )}
       </Modal>
     </div>
   );

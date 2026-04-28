@@ -24,9 +24,16 @@ export const clienteService = {
     const clienteData = {
       nome: cliente.nome,
       cpf_cnpj: cliente.cpfCnpj || cliente.cpf_cnpj,
-      telefone: cliente.telefone,
-      email: cliente.email,
-      endereco: cliente.endereco || "",
+      telefone: cliente.telefone || "",
+      email: cliente.email || "",
+      logradouro: cliente.logradouro || "",
+      numero: cliente.numero || "",
+      complemento: cliente.complemento || "",
+      bairro: cliente.bairro || "",
+      municipio: cliente.municipio || "",
+      uf: cliente.uf || "",
+      cep: cliente.cep || "",
+      inscricao_estadual: cliente.inscricaoEstadual || cliente.inscricao_estadual || "",
       user_id: null,
     };
     const { data, error } = await supabase
@@ -42,9 +49,16 @@ export const clienteService = {
     const clienteData = {
       nome: cliente.nome,
       cpf_cnpj: cliente.cpfCnpj || cliente.cpf_cnpj,
-      telefone: cliente.telefone,
-      email: cliente.email,
-      endereco: cliente.endereco || "",
+      telefone: cliente.telefone || "",
+      email: cliente.email || "",
+      logradouro: cliente.logradouro || "",
+      numero: cliente.numero || "",
+      complemento: cliente.complemento || "",
+      bairro: cliente.bairro || "",
+      municipio: cliente.municipio || "",
+      uf: cliente.uf || "",
+      cep: cliente.cep || "",
+      inscricao_estadual: cliente.inscricaoEstadual || cliente.inscricao_estadual || "",
     };
     const { data, error } = await supabase
       .from("clientes")

@@ -8,6 +8,8 @@ import Table from '@components/common/Table';
 import Modal from '@components/common/Modal';
 import Input from '@components/common/Input';
 import toast from 'react-hot-toast';
+import { ordemServicoService } from '@services/ordemServicoService';
+import { recebimentoService } from '@services/recebimentoService';
 
 const Vendas = () => {
   const { vendas, addVenda, updateVenda, deleteVenda, fetchVendas, loading } = useVendaStore();
@@ -22,8 +24,10 @@ const Vendas = () => {
   const [formData, setFormData] = useState({
     clienteId: '',
     data: new Date().toISOString().split('T')[0],
-    valor: '',
     produtos: '',
+    unidade: 'UN',
+    quantidade: '1',
+    valorUnitario: '',
     status: 'Pendente',
     formaPagamento: ''
   });
@@ -43,8 +47,10 @@ const Vendas = () => {
       setFormData({
         clienteId: venda.cliente_id || venda.clienteId,
         data: venda.data,
-        valor: venda.valor,
         produtos: venda.produtos,
+        unidade: venda.unidade || 'UN',
+        quantidade: String(venda.quantidade || '1'),
+        valorUnitario: String(venda.valor_unitario || venda.valor || ''),
         status: venda.status,
         formaPagamento: venda.forma_pagamento || venda.formaPagamento
       });
@@ -53,8 +59,10 @@ const Vendas = () => {
       setFormData({
         clienteId: '',
         data: new Date().toISOString().split('T')[0],
-        valor: '',
         produtos: '',
+        unidade: 'UN',
+        quantidade: '1',
+        valorUnitario: '',
         status: 'Pendente',
         formaPagamento: ''
       });
@@ -68,14 +76,21 @@ const Vendas = () => {
   };
 
   const handleSave = async () => {
-    if (!formData.clienteId || !formData.data || !formData.valor || !formData.produtos || !formData.formaPagamento) {
+    const valorUnitario = parseFloat(formData.valorUnitario) || 0;
+    const quantidade = parseFloat(formData.quantidade) || 1;
+    const valorFinal = valorUnitario * quantidade;
+
+    if (!formData.clienteId || !formData.data || !formData.valorUnitario || !formData.produtos || !formData.formaPagamento) {
       toast.error('Preencha todos os campos obrigatórios!');
       return;
     }
 
     const vendaData = {
       data: formData.data,
-      valor: parseFloat(formData.valor),
+      valor: valorFinal,
+      valor_unitario: valorUnitario,
+      quantidade,
+      unidade: formData.unidade || 'UN',
       produtos: formData.produtos,
       status: formData.status,
       forma_pagamento: formData.formaPagamento,
@@ -87,8 +102,16 @@ const Vendas = () => {
         await updateVenda(editingVenda.id, vendaData);
         toast.success('Venda atualizada com sucesso!');
       } else {
-        await addVenda(vendaData);
-        toast.success('Venda cadastrada com sucesso!');
+        const novaVenda = await addVenda(vendaData);
+        const clienteNome = getClienteNome(vendaData.cliente_id);
+        let os = null;
+        try {
+          os = await ordemServicoService.criarDeVenda(novaVenda);
+        } catch { /* OS opcional */ }
+        try {
+          await recebimentoService.criarDeVenda(novaVenda, os, clienteNome);
+        } catch { /* Recebimento opcional */ }
+        toast.success('Venda cadastrada! OS e recebimento gerados automaticamente.');
       }
       closeModal();
     } catch (error) {
@@ -110,6 +133,10 @@ const Vendas = () => {
   const handleInputChange = (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
+
+  const valorFinalCalculado = (
+    (parseFloat(formData.valorUnitario) || 0) * (parseFloat(formData.quantidade) || 1)
+  ).toLocaleString('pt-BR', { minimumFractionDigits: 2 });
 
   const getClienteNome = (clienteId) => {
     const cliente = clientes.find(c => c.id === clienteId);
@@ -220,20 +247,53 @@ const Vendas = () => {
           />
 
           <Input
-            label="Produtos *"
+            label="Descrição do Produto/Serviço *"
             value={formData.produtos}
             onChange={(e) => handleInputChange('produtos', e.target.value)}
-            placeholder="Ex: Produto A, Produto B"
+            placeholder="Ex: Impressão gráfica, Panfletos A5..."
           />
 
-          <Input
-            label="Valor (R$) *"
-            type="number"
-            step="0.01"
-            value={formData.valor}
-            onChange={(e) => handleInputChange('valor', e.target.value)}
-            placeholder="0.00"
-          />
+          <div className="grid grid-cols-3 gap-3">
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Unidade</label>
+              <select
+                value={formData.unidade}
+                onChange={(e) => handleInputChange('unidade', e.target.value)}
+                className="input"
+              >
+                <option value="UN">UN – Unidade</option>
+                <option value="KG">KG – Quilograma</option>
+                <option value="M2">M2 – Metro Quadrado</option>
+                <option value="M">M – Metro</option>
+                <option value="L">L – Litro</option>
+                <option value="CX">CX – Caixa</option>
+                <option value="PC">PC – Peça</option>
+                <option value="SV">SV – Serviço</option>
+              </select>
+            </div>
+            <Input
+              label="Quantidade"
+              type="number"
+              step="0.001"
+              min="0.001"
+              value={formData.quantidade}
+              onChange={(e) => handleInputChange('quantidade', e.target.value)}
+              placeholder="1"
+            />
+            <Input
+              label="Valor Unitário (R$) *"
+              type="number"
+              step="0.01"
+              value={formData.valorUnitario}
+              onChange={(e) => handleInputChange('valorUnitario', e.target.value)}
+              placeholder="0.00"
+            />
+          </div>
+
+          <div className="bg-slate-50 border border-slate-200 rounded-lg px-4 py-3">
+            <p className="text-xs text-slate-500 font-medium mb-0.5">VALOR FINAL</p>
+            <p className="text-xl font-bold text-slate-800">R$ {valorFinalCalculado}</p>
+          </div>
 
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">

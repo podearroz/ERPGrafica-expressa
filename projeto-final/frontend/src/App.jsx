@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Toaster } from 'react-hot-toast';
-import { BarChart3, Users, ShoppingCart, TrendingUp, TrendingDown, FileText, Calendar } from 'lucide-react';
+import { BarChart3, Users, ShoppingCart, TrendingUp, TrendingDown, FileText, Calendar, Package, ClipboardList } from 'lucide-react';
 import Dashboard from '@pages/Dashboard';
 import Clientes from '@pages/Clientes';
 import Vendas from '@pages/Vendas';
@@ -8,14 +8,18 @@ import Recebimentos from '@pages/Recebimentos';
 import Pagamentos from '@pages/Pagamentos';
 import NotasFiscais from '@pages/NotasFiscais';
 import Relatorios from '@pages/Relatorios';
+import Estoque from '@pages/Estoque';
+import OrdensServico from '@pages/OrdensServico';
 
 function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
-  
+
   const tabs = [
     { id: 'dashboard', label: 'Dashboard', icon: BarChart3, component: Dashboard },
     { id: 'clientes', label: 'Clientes', icon: Users, component: Clientes },
     { id: 'vendas', label: 'Vendas', icon: ShoppingCart, component: Vendas },
+    { id: 'estoque', label: 'Estoque', icon: Package, component: Estoque },
+    { id: 'os', label: 'Ordens de Serviço', icon: ClipboardList, component: OrdensServico },
     { id: 'recebimentos', label: 'Recebimentos', icon: TrendingUp, component: Recebimentos },
     { id: 'pagamentos', label: 'Pagamentos', icon: TrendingDown, component: Pagamentos },
     { id: 'notas', label: 'Notas Fiscais', icon: FileText, component: NotasFiscais },

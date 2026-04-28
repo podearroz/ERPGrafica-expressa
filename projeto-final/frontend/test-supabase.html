@@ -83,8 +83,8 @@
 
     <script>
         // Configuração do Supabase
-        const SUPABASE_URL = 'https://vebswpvfgqoikgfpejtu.supabase.co';
-        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZlYnN3cHZmZ3FvaWtnZnBlanR1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA5MDAwODAsImV4cCI6MjA4NjQ3NjA4MH0.lI-l_yGpqhC4MdWUutfa0FPSGwsC-FJoiiBz2z7riF4';
+        const SUPABASE_URL = process.env.VITE_SUPABASE_URL;
+        const SUPABASE_KEY = process.env.VITE_SUPABASE_ANON_KEY;
         
         const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
         

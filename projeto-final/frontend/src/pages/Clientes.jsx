@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Search, Edit, Trash2, X, Save } from 'lucide-react';
+import { Plus, Search, Edit, Trash2, Save } from 'lucide-react';
 import useClienteStore from '@store/clienteStore';
 import Card from '@components/common/Card';
 import Button from '@components/common/Button';
@@ -8,28 +8,38 @@ import Modal from '@components/common/Modal';
 import Input from '@components/common/Input';
 import toast from 'react-hot-toast';
 
+const emptyForm = {
+  nome: '',
+  cpfCnpj: '',
+  inscricaoEstadual: '',
+  logradouro: '',
+  numero: '',
+  complemento: '',
+  bairro: '',
+  municipio: '',
+  uf: '',
+  cep: '',
+  telefone: '',
+  email: '',
+};
+
 const Clientes = () => {
   const { clientes, addCliente, updateCliente, deleteCliente, fetchClientes, loading } = useClienteStore();
-  
+
   useEffect(() => {
     fetchClientes();
   }, []);
+
   const [searchTerm, setSearchTerm] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [editingCliente, setEditingCliente] = useState(null);
-  const [formData, setFormData] = useState({
-    nome: '',
-    cpfCnpj: '',
-    telefone: '',
-    email: '',
-    endereco: ''
-  });
+  const [formData, setFormData] = useState(emptyForm);
 
   const headers = [
-    { label: 'Nome' },
+    { label: 'Nome / Razão Social' },
     { label: 'CPF/CNPJ' },
+    { label: 'Município/UF' },
     { label: 'Telefone' },
-    { label: 'Email' },
     { label: 'Ações', align: 'right' }
   ];
 
@@ -43,21 +53,22 @@ const Clientes = () => {
     if (cliente) {
       setEditingCliente(cliente);
       setFormData({
-        nome: cliente.nome,
-        cpfCnpj: cliente.cpf_cnpj || cliente.cpfCnpj,
-        telefone: cliente.telefone,
-        email: cliente.email,
-        endereco: cliente.endereco
+        nome: cliente.nome || '',
+        cpfCnpj: cliente.cpf_cnpj || cliente.cpfCnpj || '',
+        inscricaoEstadual: cliente.inscricao_estadual || '',
+        logradouro: cliente.logradouro || '',
+        numero: cliente.numero || '',
+        complemento: cliente.complemento || '',
+        bairro: cliente.bairro || '',
+        municipio: cliente.municipio || '',
+        uf: cliente.uf || '',
+        cep: cliente.cep || '',
+        telefone: cliente.telefone || '',
+        email: cliente.email || '',
       });
     } else {
       setEditingCliente(null);
-      setFormData({
-        nome: '',
-        cpfCnpj: '',
-        telefone: '',
-        email: '',
-        endereco: ''
-      });
+      setFormData(emptyForm);
     }
     setShowModal(true);
   };
@@ -65,17 +76,16 @@ const Clientes = () => {
   const closeModal = () => {
     setShowModal(false);
     setEditingCliente(null);
-    setFormData({
-      nome: '',
-      cpfCnpj: '',
-      telefone: '',
-      email: '',
-      endereco: ''
-    });
+    setFormData(emptyForm);
+  };
+
+  const handleInputChange = (field, value) => {
+    setFormData(prev => ({ ...prev, [field]: value.toUpperCase() }));
   };
 
   const handleSave = async () => {
-    if (!formData.nome || !formData.cpfCnpj || !formData.telefone || !formData.email) {
+    if (!formData.nome || !formData.cpfCnpj || !formData.logradouro || !formData.numero ||
+        !formData.bairro || !formData.municipio || !formData.uf || !formData.cep) {
       toast.error('Preencha todos os campos obrigatórios!');
       return;
     }
@@ -103,10 +113,6 @@ const Clientes = () => {
         toast.error('Erro ao excluir cliente.');
       }
     }
-  };
-
-  const handleInputChange = (field, value) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
   };
 
   return (
@@ -142,10 +148,10 @@ const Clientes = () => {
                   {cliente.cpf_cnpj || cliente.cpfCnpj}
                 </td>
                 <td className="px-6 py-4 text-sm text-slate-600">
-                  {cliente.telefone}
+                  {[cliente.municipio, cliente.uf].filter(Boolean).join(' / ')}
                 </td>
                 <td className="px-6 py-4 text-sm text-slate-600">
-                  {cliente.email}
+                  {cliente.telefone}
                 </td>
                 <td className="px-6 py-4 text-sm text-right">
                   <button
@@ -192,37 +198,118 @@ const Clientes = () => {
         }
       >
         <div className="space-y-4">
-          <Input
-            label="Nome *"
-            value={formData.nome}
-            onChange={(e) => handleInputChange('nome', e.target.value)}
-            placeholder="Nome completo"
-          />
-          <Input
-            label="CPF/CNPJ *"
-            value={formData.cpfCnpj}
-            onChange={(e) => handleInputChange('cpfCnpj', e.target.value)}
-            placeholder="000.000.000-00 ou 00.000.000/0000-00"
-          />
-          <Input
-            label="Telefone *"
-            value={formData.telefone}
-            onChange={(e) => handleInputChange('telefone', e.target.value)}
-            placeholder="(00) 00000-0000"
-          />
-          <Input
-            label="Email *"
-            type="email"
-            value={formData.email}
-            onChange={(e) => handleInputChange('email', e.target.value)}
-            placeholder="email@exemplo.com"
-          />
-          <Input
-            label="Endereço"
-            value={formData.endereco}
-            onChange={(e) => handleInputChange('endereco', e.target.value)}
-            placeholder="Rua, número, bairro, cidade"
-          />
+          {/* Seção: Destinatário / Remetente */}
+          <div className="border border-slate-200 rounded p-3">
+            <p className="text-xs font-bold text-slate-500 uppercase mb-3">Destinatário / Remetente</p>
+
+            {/* Nome e CPF/CNPJ */}
+            <div className="grid grid-cols-3 gap-3 mb-3">
+              <div className="col-span-2">
+                <Input
+                  label="Nome / Razão Social *"
+                  value={formData.nome}
+                  onChange={(e) => handleInputChange('nome', e.target.value)}
+                  placeholder="NOME COMPLETO OU RAZÃO SOCIAL"
+                />
+              </div>
+              <div>
+                <Input
+                  label="CNPJ / CPF *"
+                  value={formData.cpfCnpj}
+                  onChange={(e) => handleInputChange('cpfCnpj', e.target.value)}
+                  placeholder="00.000.000/0000-00"
+                />
+              </div>
+            </div>
+
+            {/* Endereço */}
+            <div className="grid grid-cols-4 gap-3 mb-3">
+              <div className="col-span-2">
+                <Input
+                  label="Endereço *"
+                  value={formData.logradouro}
+                  onChange={(e) => handleInputChange('logradouro', e.target.value)}
+                  placeholder="RUA / AVENIDA"
+                />
+              </div>
+              <div>
+                <Input
+                  label="Número *"
+                  value={formData.numero}
+                  onChange={(e) => handleInputChange('numero', e.target.value)}
+                  placeholder="191"
+                />
+              </div>
+              <div>
+                <Input
+                  label="Complemento"
+                  value={formData.complemento}
+                  onChange={(e) => handleInputChange('complemento', e.target.value)}
+                  placeholder="SALA 2"
+                />
+              </div>
+            </div>
+
+            {/* Bairro e CEP */}
+            <div className="grid grid-cols-2 gap-3 mb-3">
+              <Input
+                label="Bairro / Distrito *"
+                value={formData.bairro}
+                onChange={(e) => handleInputChange('bairro', e.target.value)}
+                placeholder="BAIRRO"
+              />
+              <Input
+                label="CEP *"
+                value={formData.cep}
+                onChange={(e) => handleInputChange('cep', e.target.value)}
+                placeholder="00000-000"
+              />
+            </div>
+
+            {/* Município, UF, Telefone e Inscrição Estadual */}
+            <div className="grid grid-cols-4 gap-3">
+              <div className="col-span-2">
+                <Input
+                  label="Município *"
+                  value={formData.municipio}
+                  onChange={(e) => handleInputChange('municipio', e.target.value)}
+                  placeholder="CIDADE"
+                />
+              </div>
+              <div>
+                <Input
+                  label="UF *"
+                  value={formData.uf}
+                  onChange={(e) => handleInputChange('uf', e.target.value)}
+                  placeholder="RO"
+                  maxLength={2}
+                />
+              </div>
+              <div>
+                <Input
+                  label="Fone / Fax"
+                  value={formData.telefone}
+                  onChange={(e) => handleInputChange('telefone', e.target.value)}
+                  placeholder="(00) 00000-0000"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 mt-3">
+              <Input
+                label="Inscrição Estadual"
+                value={formData.inscricaoEstadual}
+                onChange={(e) => handleInputChange('inscricaoEstadual', e.target.value)}
+                placeholder="INSCRIÇÃO ESTADUAL"
+              />
+              <Input
+                label="Email"
+                value={formData.email}
+                onChange={(e) => handleInputChange('email', e.target.value)}
+                placeholder="EMAIL@EXEMPLO.COM"
+              />
+            </div>
+          </div>
         </div>
       </Modal>
     </div>
