@@ -1,18 +1,14 @@
 import { create } from 'xmlbuilder2';
 
 // ── Cálculo do DV da chave de acesso — Módulo 11 SEFAZ ─────────────────────
-// Algoritmo CORRETO: percorre da esquerda para a direita com pesos fixos
-// conforme Manual de Integração NF-e v6.00, Seção 5 (Chave de Acesso)
+// Algoritmo: percorre da DIREITA para a ESQUERDA com pesos ciclando de 2 a 9
+// Conforme Manual de Integração NF-e v6.00, Seção 5 (Chave de Acesso)
 function calcDV(chave43) {
-  const pesos = [2, 3, 4, 5, 6, 7, 8, 9,
-                 2, 3, 4, 5, 6, 7, 8, 9,
-                 2, 3, 4, 5, 6, 7, 8, 9,
-                 2, 3, 4, 5, 6, 7, 8, 9,
-                 2, 3, 4, 5, 6, 7, 8, 9,
-                 2, 3, 4];
   let soma = 0;
-  for (let i = 0; i < 43; i++) {
-    soma += parseInt(chave43[i]) * pesos[i];
+  let peso = 2;
+  for (let i = chave43.length - 1; i >= 0; i--) {
+    soma += parseInt(chave43[i]) * peso;
+    peso = peso === 9 ? 2 : peso + 1;
   }
   const resto = soma % 11;
   return resto < 2 ? 0 : 11 - resto;

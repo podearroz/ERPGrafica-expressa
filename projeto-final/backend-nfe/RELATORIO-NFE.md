@@ -24,11 +24,10 @@
 
 ---
 
-### CRITICO 2 — Algoritmo de calculo do DV incorreto
-**Arquivo:** `src/services/nfeXmlBuilder.js`, funcao `calcDV()` (linha 4-13)
-**Problema:** O algoritmo original percorria os digitos de tras para frente com pesos ciclando de 2 a 9. O algoritmo correto para NF-e (Manual de Integracao v6.00, Secao 5) percorre da esquerda para a direita com um vetor fixo de 43 pesos.
+### CRITICO 2 — Algoritmo de calculo do DV
+**Arquivo:** `src/services/nfeXmlBuilder.js`, funcao `calcDV()`
+**Algoritmo CORRETO (validado pela SEFAZ):** percorre da DIREITA para a ESQUERDA com pesos ciclando de 2 a 9.
 
-**Antes (ERRADO):**
 ```javascript
 function calcDV(chave43) {
   let soma = 0;
@@ -42,21 +41,7 @@ function calcDV(chave43) {
 }
 ```
 
-**Depois (CORRETO):**
-```javascript
-function calcDV(chave43) {
-  const pesos = [2,3,4,5,6,7,8,9, 2,3,4,5,6,7,8,9, 2,3,4,5,6,7,8,9,
-                 2,3,4,5,6,7,8,9, 2,3,4,5,6,7,8,9, 2,3,4];
-  let soma = 0;
-  for (let i = 0; i < 43; i++) {
-    soma += parseInt(chave43[i]) * pesos[i];
-  }
-  const resto = soma % 11;
-  return resto < 2 ? 0 : 11 - resto;
-}
-```
-
-Nota: Os dois algoritmos podem gerar o mesmo resultado em alguns casos, mas divergem em outros, causando rejeicao SEFAZ com erro "chave invalida".
+Nota: O algoritmo esquerda→direita com vetor fixo de pesos gera DV diferente e causa rejeicao SEFAZ cStat=253 "Digito Verificador invalido".
 
 ---
 
