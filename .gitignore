@@ -1,2 +1,17 @@
-.history
-node_modules
+.history/
+node_modules/
+
+# Arquivos fora do projeto
+*.pdf
+*.xml
+*.png
+*.jpg
+*.jpeg
+*.jfif
+*.cdr
+*.rar
+*.zip
+
+# Variaveis de ambiente
+.env
+.env.local
