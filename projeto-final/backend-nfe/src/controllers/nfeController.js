@@ -10,9 +10,9 @@ import { assinarXml, autorizarNFe, consultarNFeSefaz, checkStatusSefaz } from '.
 import { getInfoCertificado } from '../services/certificadoService.js';
 import { proximoNumeroNFe, salvarNFe, buscarNFePorChave, consultarSequencia } from '../services/supabaseNfeService.js';
 
-// Caminho do logo da empresa (5 níveis acima de src/controllers/)
+// Caminho do logo da empresa (em backend-nfe/assets/)
 const __dirname_ctrl = dirname(fileURLToPath(import.meta.url));
-const LOGO_PATH = join(__dirname_ctrl, '..', '..', '..', '..', '..', 'Logo_2026.png');
+const LOGO_PATH = join(__dirname_ctrl, '..', '..', 'assets', 'Logo_2026.png');
 
 // ── Status do serviço SEFAZ ───────────────────────────────────────────────
 
@@ -351,7 +351,7 @@ export async function downloadDANFE(req, res) {
     // ── Constantes de layout ──────────────────────────────────────────────
     // A4: 595 × 842pt  |  margens: 14pt  |  largura útil: 567pt
     const ML = 14, MT = 14, PW = 567;
-    const PRETO = '#000000', CINZA = '#555555', BG = '#e8e8e8', VERDE = '#155724';
+    const PRETO = '#000000', CINZA = '#555555', BG = '#e8e8e8';
     const LW = 0.3;
 
     // ── Helpers ───────────────────────────────────────────────────────────
@@ -365,10 +365,10 @@ export async function downloadDANFE(req, res) {
     const L = (t, x, y, w) =>
       doc.save().fontSize(5.5).font('Helvetica-Bold').fillColor(CINZA)
          .text(t, x + 2, y + 2, { width: w - 4, lineBreak: false }).restore();
-    // Valor centralizado verticalmente na célula (altura padrão 17pt)
+    // Valor posicionado abaixo do rótulo (L) na célula — mínimo y+10 para não colidir
     const V = (t, x, y, w, align = 'left', sz = 8, bold = false, cellH = 17) =>
       doc.save().fontSize(sz).font(bold ? 'Helvetica-Bold' : 'Helvetica').fillColor(PRETO)
-         .text(String(t ?? ''), x + 2, y + Math.floor((cellH - sz) / 2) + 1,
+         .text(String(t ?? ''), x + 2, y + Math.max(10, cellH - sz),
                { width: w - 4, lineBreak: false, align }).restore();
     // Barra cinza de seção
     const SH = (t, x, y, w) => {
@@ -524,11 +524,11 @@ export async function downloadDANFE(req, res) {
     box(ML + natW, y, protW, rH);
     L('NATUREZA DA OPERAÇÃO', ML, y, natW);
     doc.save().fontSize(9).font('Helvetica-Bold').fillColor(PRETO)
-       .text(natOp, ML + 2, y + 6, { width: natW - 4, align: 'center', lineBreak: false }).restore();
+       .text(natOp, ML + 2, y + 9, { width: natW - 4, align: 'center', lineBreak: false }).restore();
     L('PROTOCOLO DE AUTORIZAÇÃO DE USO', ML + natW, y, protW);
     doc.save().fontSize(7.5).font('Helvetica-Bold')
-       .fillColor(nota.protocolo ? VERDE : CINZA)
-       .text(protocoloDisplay, ML + natW + 2, y + 6,
+       .fillColor(nota.protocolo ? PRETO : CINZA)
+       .text(protocoloDisplay, ML + natW + 2, y + 9,
              { width: protW - 4, lineBreak: false }).restore();
     y += rH;
 
@@ -649,7 +649,7 @@ export async function downloadDANFE(req, res) {
       box(impX(i), y, impWs[i], rH);
       L(l, impX(i), y, impWs[i]);
       doc.save().fontSize(8).font('Helvetica-Bold').fillColor(PRETO)
-         .text(v, impX(i) + 2, y + 7, { width: impWs[i] - 4, align: 'right', lineBreak: false }).restore();
+         .text(v, impX(i) + 2, y + 10, { width: impWs[i] - 4, align: 'right', lineBreak: false }).restore();
     });
     y += rH;
 
@@ -664,7 +664,7 @@ export async function downloadDANFE(req, res) {
       box(impX(i), y, impWs[i], rH);
       L(l, impX(i), y, impWs[i]);
       doc.save().fontSize(8).font('Helvetica-Bold').fillColor(PRETO)
-         .text(v, impX(i) + 2, y + 7, { width: impWs[i] - 4, align: 'right', lineBreak: false }).restore();
+         .text(v, impX(i) + 2, y + 10, { width: impWs[i] - 4, align: 'right', lineBreak: false }).restore();
     });
     y += rH;
 
@@ -802,19 +802,9 @@ export async function downloadDANFE(req, res) {
       y += rowH;
     });
 
-    // Linhas vazias pontilhadas abaixo dos itens (preenche até dados adicionais)
-    const pageBottom  = 842 - 14;
-    const daNeeded    = 9 + 80 + 14 + 6;   // SH + content + footer + gap
-    const tableBottom = pageBottom - daNeeded;
-    while (y + rowH <= tableBottom) {
-      cx = ML;
-      cols.forEach(c => {
-        doc.save().lineWidth(0.3).dash(2, { space: 2 })
-           .rect(cx, y, c.w, rowH).stroke(PRETO).restore();
-        cx += c.w;
-      });
-      y += rowH;
-    }
+    // Linha sólida abaixo do último produto (sem linhas vazias pontilhadas)
+    hl(ML, y, PW);
+    const pageBottom = 842 - 14;
 
     // ════════════════════════════════════════════════════════════════════
     // 9. DADOS ADICIONAIS — [INFORMAÇÕES COMPLEMENTARES | RESERVADO AO FISCO]
