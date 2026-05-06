@@ -3,12 +3,23 @@ import { estoqueService } from "./estoqueService";
 import { notaFiscalService } from "./notaFiscalService";
 
 const gerarNumeroOS = async () => {
-  const { count, error } = await supabase
+  // Busca todos os números existentes para garantir unicidade mesmo após exclusões
+  const { data } = await supabase
     .from("ordens_servico")
-    .select("id", { count: "exact", head: true });
-  if (error) throw error;
-  const numero = (count || 0) + 1;
-  return `OS-${String(numero).padStart(5, "0")}`;
+    .select("numero_os")
+    .not("numero_os", "is", null);
+
+  let max = 0;
+  if (data) {
+    data.forEach((row) => {
+      const match = row.numero_os?.match(/OS-(\d+)/);
+      if (match) {
+        const n = parseInt(match[1]);
+        if (n > max) max = n;
+      }
+    });
+  }
+  return `OS-${String(max + 1).padStart(5, "0")}`;
 };
 
 export const ordemServicoService = {
@@ -17,7 +28,7 @@ export const ordemServicoService = {
       .from("ordens_servico")
       .select(`
         *,
-        cliente:clientes(id, nome, cpf_cnpj),
+        cliente:clientes(id, nome, cpf_cnpj, telefone),
         itens:itens_os(*)
       `)
       .order("created_at", { ascending: false });
@@ -30,7 +41,7 @@ export const ordemServicoService = {
       .from("ordens_servico")
       .select(`
         *,
-        cliente:clientes(id, nome, cpf_cnpj),
+        cliente:clientes(id, nome, cpf_cnpj, telefone),
         itens:itens_os(*, produto:produtos(id, nome, codigo))
       `)
       .eq("id", id)
@@ -59,6 +70,9 @@ export const ordemServicoService = {
         numero_os,
         venda_id: venda.id,
         cliente_id: venda.cliente_id || null,
+        // Armazena nome/telefone do cliente avulso para exibir na OS sem precisar do FK
+        cliente_nome: venda.cliente_nome || null,
+        cliente_telefone: venda.cliente_telefone || null,
         data_abertura: venda.data || new Date().toISOString().split("T")[0],
         status: "ABERTA",
         valor_total: parseFloat(venda.valor) || 0,

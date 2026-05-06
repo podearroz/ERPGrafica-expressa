@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Edit, Trash2, X, Save } from 'lucide-react';
+import { Plus, Edit, Trash2, Save, CheckCircle } from 'lucide-react';
 import useVendaStore from '@store/vendaStore';
 import useClienteStore from '@store/clienteStore';
 import Card from '@components/common/Card';
@@ -11,26 +11,32 @@ import toast from 'react-hot-toast';
 import { ordemServicoService } from '@services/ordemServicoService';
 import { recebimentoService } from '@services/recebimentoService';
 
+const FORM_VAZIO = {
+  tipoCliente: 'cadastrado',
+  clienteId: '',
+  clienteNome: '',
+  clienteTelefone: '',
+  data: new Date().toISOString().split('T')[0],
+  produtos: '',
+  unidade: 'UN',
+  quantidade: '1',
+  valorUnitario: '',
+  status: 'Pendente',
+  formaPagamento: '',
+};
+
 const Vendas = () => {
   const { vendas, addVenda, updateVenda, deleteVenda, fetchVendas, loading } = useVendaStore();
   const { clientes, fetchClientes } = useClienteStore();
-  
+
   useEffect(() => {
     fetchVendas();
     fetchClientes();
   }, []);
+
   const [showModal, setShowModal] = useState(false);
   const [editingVenda, setEditingVenda] = useState(null);
-  const [formData, setFormData] = useState({
-    clienteId: '',
-    data: new Date().toISOString().split('T')[0],
-    produtos: '',
-    unidade: 'UN',
-    quantidade: '1',
-    valorUnitario: '',
-    status: 'Pendente',
-    formaPagamento: ''
-  });
+  const [formData, setFormData] = useState(FORM_VAZIO);
 
   const headers = [
     { label: 'Data' },
@@ -38,34 +44,36 @@ const Vendas = () => {
     { label: 'Produtos' },
     { label: 'Valor' },
     { label: 'Status' },
-    { label: 'Ações', align: 'right' }
+    { label: 'Ações', align: 'right' },
   ];
+
+  // Retorna o nome do cliente de uma venda (cadastrado ou avulso)
+  const getClienteNome = (venda) => {
+    if (venda.cliente?.nome) return venda.cliente.nome;
+    if (venda.cliente_nome) return venda.cliente_nome;
+    return '—';
+  };
 
   const openModal = (venda = null) => {
     if (venda) {
       setEditingVenda(venda);
+      const isCadastrado = !!venda.cliente_id;
       setFormData({
-        clienteId: venda.cliente_id || venda.clienteId,
+        tipoCliente: isCadastrado ? 'cadastrado' : 'avulso',
+        clienteId: venda.cliente_id || '',
+        clienteNome: venda.cliente_nome || '',
+        clienteTelefone: venda.cliente_telefone || '',
         data: venda.data,
         produtos: venda.produtos,
         unidade: venda.unidade || 'UN',
         quantidade: String(venda.quantidade || '1'),
         valorUnitario: String(venda.valor_unitario || venda.valor || ''),
         status: venda.status,
-        formaPagamento: venda.forma_pagamento || venda.formaPagamento
+        formaPagamento: venda.forma_pagamento || venda.formaPagamento || '',
       });
     } else {
       setEditingVenda(null);
-      setFormData({
-        clienteId: '',
-        data: new Date().toISOString().split('T')[0],
-        produtos: '',
-        unidade: 'UN',
-        quantidade: '1',
-        valorUnitario: '',
-        status: 'Pendente',
-        formaPagamento: ''
-      });
+      setFormData(FORM_VAZIO);
     }
     setShowModal(true);
   };
@@ -80,7 +88,17 @@ const Vendas = () => {
     const quantidade = parseFloat(formData.quantidade) || 1;
     const valorFinal = valorUnitario * quantidade;
 
-    if (!formData.clienteId || !formData.data || !formData.valorUnitario || !formData.produtos || !formData.formaPagamento) {
+    // Validação do cliente conforme tipo
+    if (formData.tipoCliente === 'cadastrado' && !formData.clienteId) {
+      toast.error('Selecione um cliente cadastrado!');
+      return;
+    }
+    if (formData.tipoCliente === 'avulso' && !formData.clienteNome.trim()) {
+      toast.error('Informe o nome do cliente!');
+      return;
+    }
+
+    if (!formData.data || !formData.valorUnitario || !formData.produtos || !formData.formaPagamento) {
       toast.error('Preencha todos os campos obrigatórios!');
       return;
     }
@@ -94,7 +112,11 @@ const Vendas = () => {
       produtos: formData.produtos,
       status: formData.status,
       forma_pagamento: formData.formaPagamento,
-      cliente_id: formData.clienteId
+      // Cliente cadastrado
+      cliente_id: formData.tipoCliente === 'cadastrado' ? formData.clienteId : null,
+      // Cliente avulso (ou null se cadastrado)
+      cliente_nome: formData.tipoCliente === 'avulso' ? formData.clienteNome.trim() : null,
+      cliente_telefone: formData.tipoCliente === 'avulso' ? (formData.clienteTelefone.trim() || null) : null,
     };
 
     try {
@@ -103,45 +125,53 @@ const Vendas = () => {
         toast.success('Venda atualizada com sucesso!');
       } else {
         const novaVenda = await addVenda(vendaData);
-        const clienteNome = getClienteNome(vendaData.cliente_id);
+
+        // Nome do cliente para recebimento e OS
+        const nomeDisplay =
+          formData.tipoCliente === 'avulso'
+            ? formData.clienteNome.trim()
+            : clientes.find((c) => c.id === formData.clienteId)?.nome || '';
+
         let os = null;
         try {
           os = await ordemServicoService.criarDeVenda(novaVenda);
         } catch { /* OS opcional */ }
         try {
-          await recebimentoService.criarDeVenda(novaVenda, os, clienteNome);
+          await recebimentoService.criarDeVenda(novaVenda, os, nomeDisplay);
         } catch { /* Recebimento opcional */ }
+
         toast.success('Venda cadastrada! OS e recebimento gerados automaticamente.');
       }
       closeModal();
-    } catch (error) {
+    } catch {
       toast.error('Erro ao salvar venda. Tente novamente.');
     }
   };
 
   const handleDelete = async (id) => {
-    if (confirm('Tem certeza que deseja excluir esta venda?')) {
-      try {
-        await deleteVenda(id);
-        toast.success('Venda excluída com sucesso!');
-      } catch (error) {
-        toast.error('Erro ao excluir venda.');
-      }
+    if (!confirm('Tem certeza que deseja excluir esta venda?')) return;
+    try {
+      await deleteVenda(id);
+      toast.success('Venda excluída com sucesso!');
+    } catch {
+      toast.error('Erro ao excluir venda.');
     }
   };
 
-  const handleInputChange = (field, value) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
+  const handleMarcarPago = async (venda) => {
+    try {
+      await updateVenda(venda.id, { ...venda, status: 'Pago' });
+      toast.success('Venda marcada como paga!');
+    } catch {
+      toast.error('Erro ao atualizar status.');
+    }
   };
+
+  const set = (field, value) => setFormData((prev) => ({ ...prev, [field]: value }));
 
   const valorFinalCalculado = (
     (parseFloat(formData.valorUnitario) || 0) * (parseFloat(formData.quantidade) || 1)
   ).toLocaleString('pt-BR', { minimumFractionDigits: 2 });
-
-  const getClienteNome = (clienteId) => {
-    const cliente = clientes.find(c => c.id === clienteId);
-    return cliente ? cliente.nome : 'Cliente não encontrado';
-  };
 
   return (
     <div>
@@ -157,31 +187,45 @@ const Vendas = () => {
 
         <Table headers={headers}>
           {vendas.length > 0 ? (
-            vendas.map(venda => (
+            vendas.map((venda) => (
               <tr key={venda.id} className="hover:bg-slate-50">
                 <td className="px-6 py-4 text-sm text-slate-600">
-                  {new Date(venda.data).toLocaleDateString('pt-BR')}
+                  {new Date(venda.data + 'T00:00:00').toLocaleDateString('pt-BR')}
                 </td>
                 <td className="px-6 py-4 text-sm font-medium text-slate-800">
-                  {getClienteNome(venda.cliente_id || venda.clienteId)}
+                  {getClienteNome(venda)}
+                  {venda.cliente_telefone && (
+                    <span className="block text-xs text-slate-400">{venda.cliente_telefone}</span>
+                  )}
                 </td>
-                <td className="px-6 py-4 text-sm text-slate-600">
-                  {venda.produtos}
-                </td>
+                <td className="px-6 py-4 text-sm text-slate-600">{venda.produtos}</td>
                 <td className="px-6 py-4 text-sm font-semibold text-slate-800">
                   R$ {(venda.valor || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                 </td>
                 <td className="px-6 py-4 text-sm">
-                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                    venda.status === 'Pago' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'
-                  }`}>
+                  <span
+                    className={`px-2 py-1 rounded-full text-xs font-medium ${
+                      venda.status === 'Pago'
+                        ? 'bg-green-100 text-green-700'
+                        : 'bg-yellow-100 text-yellow-700'
+                    }`}
+                  >
                     {venda.status}
                   </span>
                 </td>
-                <td className="px-6 py-4 text-sm text-right">
+                <td className="px-6 py-4 text-sm text-right space-x-2">
+                  {venda.status === 'Pendente' && (
+                    <button
+                      onClick={() => handleMarcarPago(venda)}
+                      className="inline-flex items-center gap-1 px-2 py-1 text-xs rounded bg-green-50 text-green-700 hover:bg-green-100 font-medium"
+                      title="Marcar como Pago"
+                    >
+                      <CheckCircle className="w-3 h-3" /> Pago
+                    </button>
+                  )}
                   <button
                     onClick={() => openModal(venda)}
-                    className="text-blue-600 hover:text-blue-700 mr-3"
+                    className="text-blue-600 hover:text-blue-700"
                     title="Editar"
                   >
                     <Edit className="w-4 h-4" />
@@ -216,40 +260,85 @@ const Vendas = () => {
             <Button variant="secondary" onClick={closeModal}>
               Cancelar
             </Button>
-            <Button icon={Save} onClick={handleSave}>
+            <Button icon={Save} onClick={handleSave} disabled={loading}>
               Salvar
             </Button>
           </>
         }
       >
         <div className="space-y-4">
+          {/* Seção Cliente */}
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
-              Cliente *
-            </label>
-            <select
-              value={formData.clienteId}
-              onChange={(e) => handleInputChange('clienteId', e.target.value)}
-              className="input"
-            >
-              <option value="">Selecione um cliente</option>
-              {clientes.map(c => (
-                <option key={c.id} value={c.id}>{c.nome}</option>
-              ))}
-            </select>
+            <label className="block text-sm font-medium text-slate-700 mb-2">Cliente *</label>
+
+            {/* Toggle tipo de cliente */}
+            <div className="flex rounded-lg border border-slate-200 overflow-hidden mb-3">
+              <button
+                type="button"
+                onClick={() => set('tipoCliente', 'cadastrado')}
+                className={`flex-1 px-3 py-2 text-sm font-medium transition-colors ${
+                  formData.tipoCliente === 'cadastrado'
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-white text-slate-600 hover:bg-slate-50'
+                }`}
+              >
+                Cliente Cadastrado
+              </button>
+              <button
+                type="button"
+                onClick={() => set('tipoCliente', 'avulso')}
+                className={`flex-1 px-3 py-2 text-sm font-medium transition-colors ${
+                  formData.tipoCliente === 'avulso'
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-white text-slate-600 hover:bg-slate-50'
+                }`}
+              >
+                Cliente Avulso
+              </button>
+            </div>
+
+            {formData.tipoCliente === 'cadastrado' ? (
+              <select
+                value={formData.clienteId}
+                onChange={(e) => set('clienteId', e.target.value)}
+                className="input"
+              >
+                <option value="">Selecione um cliente</option>
+                {clientes.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.nome}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <div className="space-y-2">
+                <Input
+                  label="Nome do Cliente *"
+                  value={formData.clienteNome}
+                  onChange={(e) => set('clienteNome', e.target.value)}
+                  placeholder="Ex: Luiz Silva"
+                />
+                <Input
+                  label="Telefone"
+                  value={formData.clienteTelefone}
+                  onChange={(e) => set('clienteTelefone', e.target.value)}
+                  placeholder="Ex: (69) 99999-0000"
+                />
+              </div>
+            )}
           </div>
 
           <Input
             label="Data *"
             type="date"
             value={formData.data}
-            onChange={(e) => handleInputChange('data', e.target.value)}
+            onChange={(e) => set('data', e.target.value)}
           />
 
           <Input
             label="Descrição do Produto/Serviço *"
             value={formData.produtos}
-            onChange={(e) => handleInputChange('produtos', e.target.value)}
+            onChange={(e) => set('produtos', e.target.value)}
             placeholder="Ex: Impressão gráfica, Panfletos A5..."
           />
 
@@ -258,7 +347,7 @@ const Vendas = () => {
               <label className="block text-sm font-medium text-slate-700 mb-1">Unidade</label>
               <select
                 value={formData.unidade}
-                onChange={(e) => handleInputChange('unidade', e.target.value)}
+                onChange={(e) => set('unidade', e.target.value)}
                 className="input"
               >
                 <option value="UN">UN – Unidade</option>
@@ -277,7 +366,7 @@ const Vendas = () => {
               step="0.001"
               min="0.001"
               value={formData.quantidade}
-              onChange={(e) => handleInputChange('quantidade', e.target.value)}
+              onChange={(e) => set('quantidade', e.target.value)}
               placeholder="1"
             />
             <Input
@@ -285,7 +374,7 @@ const Vendas = () => {
               type="number"
               step="0.01"
               value={formData.valorUnitario}
-              onChange={(e) => handleInputChange('valorUnitario', e.target.value)}
+              onChange={(e) => set('valorUnitario', e.target.value)}
               placeholder="0.00"
             />
           </div>
@@ -301,7 +390,7 @@ const Vendas = () => {
             </label>
             <select
               value={formData.formaPagamento}
-              onChange={(e) => handleInputChange('formaPagamento', e.target.value)}
+              onChange={(e) => set('formaPagamento', e.target.value)}
               className="input"
             >
               <option value="">Selecione</option>
@@ -314,12 +403,10 @@ const Vendas = () => {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
-              Status *
-            </label>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Status *</label>
             <select
               value={formData.status}
-              onChange={(e) => handleInputChange('status', e.target.value)}
+              onChange={(e) => set('status', e.target.value)}
               className="input"
             >
               <option value="Pendente">Pendente</option>

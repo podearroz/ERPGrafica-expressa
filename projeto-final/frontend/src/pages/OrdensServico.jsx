@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ClipboardList, CheckCircle, XCircle, FileText, Eye, Trash2, Eraser } from 'lucide-react';
+import { ClipboardList, CheckCircle, XCircle, FileText, Eye, Trash2, Eraser, Printer } from 'lucide-react';
 import useOrdemServicoStore from '@store/ordemServicoStore';
 import { supabase } from '@/config/supabaseClient';
 import Card from '@components/common/Card';
@@ -24,6 +24,161 @@ const BadgeStatus = ({ status }) => {
   );
 };
 
+// ─── Função de Impressão ──────────────────────────────────────────────────────
+const imprimirOS = (os) => {
+  const fmtMoney = (v) =>
+    parseFloat(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 });
+  const fmtDate = (d) =>
+    d ? new Date(d + 'T00:00:00').toLocaleDateString('pt-BR') : '—';
+
+  const nomeCliente = os.cliente?.nome || os.cliente_nome || 'Não informado';
+  const telefoneCliente = os.cliente?.telefone || os.cliente_telefone || '';
+  const cpfCnpj = os.cliente?.cpf_cnpj || '';
+
+  const itensHtml = (os.itens || [])
+    .map(
+      (item) => `
+      <tr>
+        <td style="border:1px solid #ddd;padding:8px;">${item.descricao}</td>
+        <td style="border:1px solid #ddd;padding:8px;text-align:center;">${item.quantidade}</td>
+        <td style="border:1px solid #ddd;padding:8px;text-align:right;">R$ ${fmtMoney(item.valor_unitario)}</td>
+        <td style="border:1px solid #ddd;padding:8px;text-align:right;font-weight:600;">R$ ${fmtMoney(item.valor_total)}</td>
+      </tr>`
+    )
+    .join('');
+
+  const html = `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8"/>
+  <title>OS ${os.numero_os}</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: Arial, sans-serif; font-size: 13px; color: #333; padding: 24px; }
+    .header { display: flex; justify-content: space-between; align-items: flex-start;
+              border-bottom: 3px solid #1e40af; padding-bottom: 14px; margin-bottom: 20px; }
+    .header-left h1 { font-size: 22px; color: #1e40af; }
+    .header-left p { font-size: 13px; color: #555; margin-top: 4px; }
+    .header-right { text-align: right; }
+    .header-right .os-num { font-size: 28px; font-weight: 700; color: #1e40af; }
+    .header-right .os-data { font-size: 12px; color: #666; margin-top: 4px; }
+    .section { border: 1px solid #e2e8f0; border-radius: 6px; padding: 14px; margin-bottom: 16px; }
+    .section-title { font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase;
+                     letter-spacing: 0.05em; margin-bottom: 8px; }
+    .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .info-item label { font-size: 11px; color: #94a3b8; display: block; }
+    .info-item span { font-size: 13px; font-weight: 600; color: #1e293b; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    thead tr { background: #f1f5f9; }
+    th { border: 1px solid #ddd; padding: 8px; text-align: left; font-weight: 600; font-size: 12px; }
+    .total-row { display: flex; justify-content: flex-end; }
+    .total-box { border: 1px solid #e2e8f0; border-radius: 6px; padding: 12px 20px;
+                 min-width: 220px; margin-top: 12px; }
+    .total-line { display: flex; justify-content: space-between; font-size: 13px; padding: 3px 0; }
+    .total-line.final { font-size: 16px; font-weight: 700; color: #1e40af;
+                        border-top: 1px solid #e2e8f0; margin-top: 6px; padding-top: 6px; }
+    .obs-box { background: #f8fafc; border-radius: 4px; padding: 10px; font-size: 13px;
+               color: #475569; white-space: pre-wrap; }
+    .assinatura { display: flex; justify-content: space-around; margin-top: 40px; padding-top: 20px; }
+    .assinatura-linha { text-align: center; }
+    .assinatura-linha hr { border: none; border-top: 1px solid #94a3b8; width: 180px; margin-bottom: 6px; }
+    .assinatura-linha p { font-size: 12px; color: #64748b; }
+    .badge { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 12px;
+             font-weight: 600; background: #dbeafe; color: #1e40af; }
+    @media print {
+      body { padding: 12px; }
+      button { display: none !important; }
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="header-left">
+      <h1>Sistema de Gestão</h1>
+      <p>Ordem de Serviço</p>
+    </div>
+    <div class="header-right">
+      <div class="os-num">${os.numero_os}</div>
+      <div class="os-data">Data: ${fmtDate(os.data_abertura)}</div>
+      <div style="margin-top:6px;"><span class="badge">${os.status}</span></div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Dados do Cliente</div>
+    <div class="info-grid">
+      <div class="info-item">
+        <label>Nome</label>
+        <span>${nomeCliente}</span>
+      </div>
+      ${telefoneCliente ? `<div class="info-item"><label>Telefone</label><span>${telefoneCliente}</span></div>` : ''}
+      ${cpfCnpj ? `<div class="info-item"><label>CPF/CNPJ</label><span>${cpfCnpj}</span></div>` : ''}
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Itens da Ordem de Serviço</div>
+    <table>
+      <thead>
+        <tr>
+          <th>Descrição</th>
+          <th style="text-align:center;width:80px;">Qtd</th>
+          <th style="text-align:right;width:120px;">Valor Unit.</th>
+          <th style="text-align:right;width:120px;">Total</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${itensHtml || '<tr><td colspan="4" style="padding:12px;text-align:center;color:#94a3b8;">Sem itens</td></tr>'}
+      </tbody>
+    </table>
+
+    <div class="total-row">
+      <div class="total-box">
+        ${parseFloat(os.desconto || 0) > 0 ? `
+          <div class="total-line">
+            <span>Subtotal:</span>
+            <span>R$ ${fmtMoney(os.valor_total)}</span>
+          </div>
+          <div class="total-line">
+            <span>Desconto:</span>
+            <span style="color:#dc2626;">- R$ ${fmtMoney(os.desconto)}</span>
+          </div>
+        ` : ''}
+        <div class="total-line final">
+          <span>TOTAL:</span>
+          <span>R$ ${fmtMoney(os.valor_final)}</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  ${os.observacoes ? `
+  <div class="section">
+    <div class="section-title">Observações</div>
+    <div class="obs-box">${os.observacoes}</div>
+  </div>` : ''}
+
+  <div class="assinatura">
+    <div class="assinatura-linha">
+      <hr/>
+      <p>Assinatura do Cliente</p>
+    </div>
+    <div class="assinatura-linha">
+      <hr/>
+      <p>Responsável pelo Serviço</p>
+    </div>
+  </div>
+
+  <script>window.onload = () => window.print();</script>
+</body>
+</html>`;
+
+  const janela = window.open('', '_blank', 'width=900,height=700');
+  janela.document.write(html);
+  janela.document.close();
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
 const OrdensServico = () => {
   const { ordensServico, loading, fetchOrdensServico, faturarOS, cancelarOS, deleteOS } = useOrdemServicoStore();
 
@@ -181,7 +336,7 @@ const OrdensServico = () => {
                   {new Date(os.data_abertura + 'T00:00:00').toLocaleDateString('pt-BR')}
                 </td>
                 <td className="px-6 py-4 text-sm text-slate-800">
-                  {os.cliente?.nome || 'Cliente não informado'}
+                  {os.cliente?.nome || os.cliente_nome || 'Cliente não informado'}
                 </td>
                 <td className="px-6 py-4 text-sm font-semibold text-slate-800">
                   R$ {parseFloat(os.valor_final).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
@@ -190,6 +345,9 @@ const OrdensServico = () => {
                   <BadgeStatus status={os.status} />
                 </td>
                 <td className="px-6 py-4 text-sm text-right space-x-2">
+                  <button onClick={() => imprimirOS(os)} className="text-blue-500 hover:text-blue-700" title="Imprimir OS">
+                    <Printer className="w-4 h-4" />
+                  </button>
                   <button onClick={() => abrirDetalhes(os)} className="text-slate-500 hover:text-slate-700" title="Ver detalhes">
                     <Eye className="w-4 h-4" />
                   </button>
@@ -241,7 +399,14 @@ const OrdensServico = () => {
               </div>
               <div>
                 <p className="text-slate-500">Cliente</p>
-                <p className="font-medium">{osSelecionada.cliente?.nome || '-'}</p>
+                <p className="font-medium">
+                  {osSelecionada.cliente?.nome || osSelecionada.cliente_nome || '—'}
+                </p>
+                {(osSelecionada.cliente?.telefone || osSelecionada.cliente_telefone) && (
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    {osSelecionada.cliente?.telefone || osSelecionada.cliente_telefone}
+                  </p>
+                )}
               </div>
               <div>
                 <p className="text-slate-500">Valor Final</p>
@@ -302,8 +467,17 @@ const OrdensServico = () => {
               </div>
             )}
 
+            <div className="flex gap-2 pt-2">
+              <Button
+                onClick={() => imprimirOS(osSelecionada)}
+                className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
+              >
+                <Printer className="w-4 h-4 mr-1" /> Imprimir / WhatsApp
+              </Button>
+            </div>
+
             {osSelecionada.status === 'ABERTA' && (
-              <div className="flex gap-2 pt-2">
+              <div className="flex gap-2">
                 <Button onClick={() => { setShowDetalhesModal(false); abrirFaturar(osSelecionada); }} className="flex-1">
                   <CheckCircle className="w-4 h-4 mr-1" /> Faturar
                 </Button>
