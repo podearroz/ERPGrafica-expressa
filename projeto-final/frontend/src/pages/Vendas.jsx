@@ -160,7 +160,7 @@ const Vendas = () => {
 
   const handleMarcarPago = async (venda) => {
     try {
-      await updateVenda(venda.id, { ...venda, status: 'Pago' });
+      await updateVenda(venda.id, { status: 'Pago' });
       toast.success('Venda marcada como paga!');
     } catch {
       toast.error('Erro ao atualizar status.');
