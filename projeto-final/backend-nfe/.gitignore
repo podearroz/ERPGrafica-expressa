@@ -2,6 +2,7 @@ node_modules/
 .env
 certificados/*.pfx
 certificados/*.p12
+certificado.base64.txt
 storage/xml/*
 storage/pdf/*
 !storage/xml/.gitkeep
