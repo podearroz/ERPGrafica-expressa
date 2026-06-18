@@ -122,6 +122,9 @@ const Vendas = () => {
     try {
       if (editingVenda) {
         await updateVenda(editingVenda.id, vendaData);
+        try {
+          await ordemServicoService.atualizarDeVenda(editingVenda.id, vendaData);
+        } catch { /* OS sync opcional */ }
         toast.success('Venda atualizada com sucesso!');
       } else {
         const novaVenda = await addVenda(vendaData);
@@ -306,7 +309,7 @@ const Vendas = () => {
                 <option value="">Selecione um cliente</option>
                 {clientes.map((c) => (
                   <option key={c.id} value={c.id}>
-                    {c.nome}
+                    {c.nome_fantasia || c.nome}
                   </option>
                 ))}
               </select>
@@ -399,6 +402,7 @@ const Vendas = () => {
               <option value="Cartão Débito">Cartão Débito</option>
               <option value="Cartão Crédito">Cartão Crédito</option>
               <option value="Boleto">Boleto</option>
+              <option value="À Vista na Entrega">À Vista na Entrega</option>
             </select>
           </div>
 

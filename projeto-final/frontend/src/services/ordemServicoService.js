@@ -183,6 +183,36 @@ export const ordemServicoService = {
     return data;
   },
 
+  async atualizarDeVenda(vendaId, venda) {
+    const { data: os } = await supabase
+      .from("ordens_servico")
+      .select("id, itens:itens_os(id)")
+      .eq("venda_id", vendaId)
+      .maybeSingle();
+
+    if (!os) return null;
+
+    await supabase.from("ordens_servico").update({
+      cliente_id: venda.cliente_id,
+      cliente_nome: venda.cliente_nome,
+      cliente_telefone: venda.cliente_telefone,
+      valor_total: venda.valor,
+      valor_final: venda.valor,
+      observacoes: venda.produtos ? `Produtos: ${venda.produtos}` : null,
+      data_abertura: venda.data,
+    }).eq("id", os.id);
+
+    if (os.itens?.[0]) {
+      await supabase.from("itens_os").update({
+        descricao: venda.produtos || "Serviço/Produto",
+        valor_unitario: venda.valor,
+        valor_total: venda.valor,
+      }).eq("id", os.itens[0].id);
+    }
+
+    return os;
+  },
+
   async delete(id) {
     const { error } = await supabase.from("ordens_servico").delete().eq("id", id);
     if (error) throw error;

@@ -34,6 +34,7 @@ export const clienteService = {
       uf: cliente.uf || "",
       cep: cliente.cep || "",
       inscricao_estadual: cliente.inscricaoEstadual || cliente.inscricao_estadual || "",
+      nome_fantasia: cliente.nomeFantasia || cliente.nome_fantasia || "",
       user_id: null,
     };
     const { data, error } = await supabase
@@ -59,6 +60,7 @@ export const clienteService = {
       uf: cliente.uf || "",
       cep: cliente.cep || "",
       inscricao_estadual: cliente.inscricaoEstadual || cliente.inscricao_estadual || "",
+      nome_fantasia: cliente.nomeFantasia || cliente.nome_fantasia || "",
     };
     const { data, error } = await supabase
       .from("clientes")

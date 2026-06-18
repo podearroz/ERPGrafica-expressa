@@ -28,7 +28,7 @@ export const vendaService = {
     const { data, error } = await supabase
       .from("vendas")
       .insert([vendaData])
-      .select()
+      .select("*, cliente:clientes(id, nome, cpf_cnpj)")
       .single();
     if (error) throw error;
     return data;

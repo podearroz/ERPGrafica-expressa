@@ -10,6 +10,7 @@ import toast from 'react-hot-toast';
 
 const emptyForm = {
   nome: '',
+  nomeFantasia: '',
   cpfCnpj: '',
   inscricaoEstadual: '',
   logradouro: '',
@@ -54,6 +55,7 @@ const Clientes = () => {
       setEditingCliente(cliente);
       setFormData({
         nome: cliente.nome || '',
+        nomeFantasia: cliente.nome_fantasia || '',
         cpfCnpj: cliente.cpf_cnpj || cliente.cpfCnpj || '',
         inscricaoEstadual: cliente.inscricao_estadual || '',
         logradouro: cliente.logradouro || '',
@@ -143,6 +145,9 @@ const Clientes = () => {
               <tr key={cliente.id} className="hover:bg-slate-50">
                 <td className="px-6 py-4 text-sm font-medium text-slate-800">
                   {cliente.nome}
+                  {cliente.nome_fantasia && (
+                    <span className="block text-xs text-slate-400">{cliente.nome_fantasia}</span>
+                  )}
                 </td>
                 <td className="px-6 py-4 text-sm text-slate-600">
                   {cliente.cpf_cnpj || cliente.cpfCnpj}
@@ -202,14 +207,14 @@ const Clientes = () => {
           <div className="border border-slate-200 rounded p-3">
             <p className="text-xs font-bold text-slate-500 uppercase mb-3">Destinatário / Remetente</p>
 
-            {/* Nome e CPF/CNPJ */}
+            {/* Razão Social, Nome Fantasia e CPF/CNPJ */}
             <div className="grid grid-cols-3 gap-3 mb-3">
               <div className="col-span-2">
                 <Input
-                  label="Nome / Razão Social *"
+                  label="Razão Social *"
                   value={formData.nome}
                   onChange={(e) => handleInputChange('nome', e.target.value)}
-                  placeholder="NOME COMPLETO OU RAZÃO SOCIAL"
+                  placeholder="RAZÃO SOCIAL OU NOME COMPLETO"
                 />
               </div>
               <div>
@@ -220,6 +225,14 @@ const Clientes = () => {
                   placeholder="00.000.000/0000-00"
                 />
               </div>
+            </div>
+            <div className="mb-3">
+              <Input
+                label="Nome Fantasia"
+                value={formData.nomeFantasia}
+                onChange={(e) => handleInputChange('nomeFantasia', e.target.value)}
+                placeholder="NOME FANTASIA (OPCIONAL)"
+              />
             </div>
 
             {/* Endereço */}
