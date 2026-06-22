@@ -491,6 +491,16 @@ const Vendas = () => {
               <option value="Cartão Crédito">Cartão Crédito</option>
               <option value="Boleto">Boleto</option>
               <option value="À Vista na Entrega">À Vista na Entrega</option>
+              <option value="10 dias">10 dias</option>
+              <option value="15 dias">15 dias</option>
+              <option value="30 dias">30 dias</option>
+              <option value="10x">10x</option>
+              <option value="11x">11x</option>
+              <option value="Entrada e 30">Entrada e 30</option>
+              <option value="Entrada 15 e 30">Entrada 15 e 30</option>
+              <option value="Entrada 15, 30 e 60">Entrada 15, 30 e 60</option>
+              <option value="Entrada 30 e 60">Entrada 30 e 60</option>
+              <option value="Entrada 30, 60, 90 e 120">Entrada 30, 60, 90 e 120</option>
             </select>
           </div>
 
