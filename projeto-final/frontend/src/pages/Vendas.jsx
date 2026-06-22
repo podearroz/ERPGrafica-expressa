@@ -11,18 +11,25 @@ import toast from 'react-hot-toast';
 import { ordemServicoService } from '@services/ordemServicoService';
 import { recebimentoService } from '@services/recebimentoService';
 
+const ITEM_VAZIO = { descricao: '', unidade: 'UN', quantidade: '1', valorUnitario: '' };
+
 const FORM_VAZIO = {
   tipoCliente: 'cadastrado',
   clienteId: '',
   clienteNome: '',
   clienteTelefone: '',
   data: new Date().toISOString().split('T')[0],
-  produtos: '',
-  unidade: 'UN',
-  quantidade: '1',
-  valorUnitario: '',
   status: 'Pendente',
   formaPagamento: '',
+  itens: [{ ...ITEM_VAZIO }],
+};
+
+const formatarMoeda = (digits) => {
+  if (!digits) return '';
+  const padded = digits.padStart(3, '0');
+  const int = parseInt(padded.slice(0, -2), 10);
+  const dec = padded.slice(-2);
+  return `${int}.${dec}`;
 };
 
 const Vendas = () => {
@@ -58,22 +65,25 @@ const Vendas = () => {
     if (venda) {
       setEditingVenda(venda);
       const isCadastrado = !!venda.cliente_id;
+      const itens = venda.itens || [{
+        descricao: venda.produtos || '',
+        unidade: venda.unidade || 'UN',
+        quantidade: String(venda.quantidade || '1'),
+        valorUnitario: String(venda.valor_unitario || venda.valor || ''),
+      }];
       setFormData({
         tipoCliente: isCadastrado ? 'cadastrado' : 'avulso',
         clienteId: venda.cliente_id || '',
         clienteNome: venda.cliente_nome || '',
         clienteTelefone: venda.cliente_telefone || '',
         data: venda.data,
-        produtos: venda.produtos,
-        unidade: venda.unidade || 'UN',
-        quantidade: String(venda.quantidade || '1'),
-        valorUnitario: String(venda.valor_unitario || venda.valor || ''),
         status: venda.status,
         formaPagamento: venda.forma_pagamento || venda.formaPagamento || '',
+        itens,
       });
     } else {
       setEditingVenda(null);
-      setFormData(FORM_VAZIO);
+      setFormData({ ...FORM_VAZIO, itens: [{ ...ITEM_VAZIO }] });
     }
     setShowModal(true);
   };
@@ -84,11 +94,8 @@ const Vendas = () => {
   };
 
   const handleSave = async () => {
-    const valorUnitario = parseFloat(formData.valorUnitario) || 0;
-    const quantidade = parseFloat(formData.quantidade) || 1;
-    const valorFinal = valorUnitario * quantidade;
+    const itensValidos = formData.itens.filter((i) => i.descricao.trim());
 
-    // Validação do cliente conforme tipo
     if (formData.tipoCliente === 'cadastrado' && !formData.clienteId) {
       toast.error('Selecione um cliente cadastrado!');
       return;
@@ -97,24 +104,32 @@ const Vendas = () => {
       toast.error('Informe o nome do cliente!');
       return;
     }
-
-    if (!formData.data || !formData.valorUnitario || !formData.produtos || !formData.formaPagamento) {
+    if (!formData.data || !formData.formaPagamento) {
       toast.error('Preencha todos os campos obrigatórios!');
       return;
     }
+    if (itensValidos.length === 0 || !itensValidos.some((i) => i.valorUnitario)) {
+      toast.error('Adicione pelo menos um produto com valor!');
+      return;
+    }
+
+    const valorFinal = itensValidos.reduce(
+      (sum, i) => sum + (parseFloat(i.valorUnitario) || 0) * (parseFloat(i.quantidade) || 1),
+      0
+    );
+    const primItem = itensValidos[0];
 
     const vendaData = {
       data: formData.data,
       valor: valorFinal,
-      valor_unitario: valorUnitario,
-      quantidade,
-      unidade: formData.unidade || 'UN',
-      produtos: formData.produtos,
+      valor_unitario: parseFloat(primItem.valorUnitario) || 0,
+      quantidade: parseFloat(primItem.quantidade) || 1,
+      unidade: primItem.unidade || 'UN',
+      produtos: itensValidos.map((i) => i.descricao).join(' | '),
+      itens: itensValidos,
       status: formData.status,
       forma_pagamento: formData.formaPagamento,
-      // Cliente cadastrado
       cliente_id: formData.tipoCliente === 'cadastrado' ? formData.clienteId : null,
-      // Cliente avulso (ou null se cadastrado)
       cliente_nome: formData.tipoCliente === 'avulso' ? formData.clienteNome.trim() : null,
       cliente_telefone: formData.tipoCliente === 'avulso' ? (formData.clienteTelefone.trim() || null) : null,
     };
@@ -172,9 +187,28 @@ const Vendas = () => {
 
   const set = (field, value) => setFormData((prev) => ({ ...prev, [field]: value }));
 
-  const valorFinalCalculado = (
-    (parseFloat(formData.valorUnitario) || 0) * (parseFloat(formData.quantidade) || 1)
-  ).toLocaleString('pt-BR', { minimumFractionDigits: 2 });
+  const updateItem = (index, field, value) => {
+    setFormData((prev) => {
+      const itens = [...prev.itens];
+      itens[index] = { ...itens[index], [field]: value };
+      return { ...prev, itens };
+    });
+  };
+
+  const addItem = () =>
+    setFormData((prev) => ({ ...prev, itens: [...prev.itens, { ...ITEM_VAZIO }] }));
+
+  const removeItem = (index) =>
+    setFormData((prev) => ({ ...prev, itens: prev.itens.filter((_, i) => i !== index) }));
+
+  const handleCurrencyChange = (e, index) => {
+    const digits = e.target.value.replace(/\D/g, '');
+    updateItem(index, 'valorUnitario', formatarMoeda(digits));
+  };
+
+  const valorFinalCalculado = formData.itens
+    .reduce((sum, i) => sum + (parseFloat(i.valorUnitario) || 0) * (parseFloat(i.quantidade) || 1), 0)
+    .toLocaleString('pt-BR', { minimumFractionDigits: 2 });
 
   return (
     <div>
@@ -338,48 +372,103 @@ const Vendas = () => {
             onChange={(e) => set('data', e.target.value)}
           />
 
-          <Input
-            label="Descrição do Produto/Serviço *"
-            value={formData.produtos}
-            onChange={(e) => set('produtos', e.target.value)}
-            placeholder="Ex: Impressão gráfica, Panfletos A5..."
-          />
+          {/* Lista de itens */}
+          <div className="space-y-2">
+            <label className="block text-sm font-medium text-slate-700">Produtos/Serviços *</label>
 
-          <div className="grid grid-cols-3 gap-3">
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Unidade</label>
-              <select
-                value={formData.unidade}
-                onChange={(e) => set('unidade', e.target.value)}
-                className="input"
-              >
-                <option value="UN">UN – Unidade</option>
-                <option value="KG">KG – Quilograma</option>
-                <option value="M2">M2 – Metro Quadrado</option>
-                <option value="M">M – Metro</option>
-                <option value="L">L – Litro</option>
-                <option value="CX">CX – Caixa</option>
-                <option value="PC">PC – Peça</option>
-                <option value="SV">SV – Serviço</option>
-              </select>
-            </div>
-            <Input
-              label="Quantidade"
-              type="number"
-              step="0.001"
-              min="0.001"
-              value={formData.quantidade}
-              onChange={(e) => set('quantidade', e.target.value)}
-              placeholder="1"
-            />
-            <Input
-              label="Valor Unitário (R$) *"
-              type="number"
-              step="0.01"
-              value={formData.valorUnitario}
-              onChange={(e) => set('valorUnitario', e.target.value)}
-              placeholder="0.00"
-            />
+            {formData.itens.map((item, index) => (
+              <div key={index} className="border border-slate-200 rounded-lg p-3 space-y-2 bg-slate-50">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold text-slate-400 uppercase tracking-wide">
+                    Item {index + 1}
+                  </span>
+                  {formData.itens.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => removeItem(index)}
+                      className="text-red-400 hover:text-red-600"
+                      title="Remover item"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-slate-600 mb-1">Descrição *</label>
+                  <textarea
+                    value={item.descricao}
+                    onChange={(e) => updateItem(index, 'descricao', e.target.value)}
+                    className="input resize-none"
+                    rows={2}
+                    placeholder="Ex: Impressão gráfica, Panfletos A5..."
+                  />
+                </div>
+
+                <div className="grid grid-cols-3 gap-2">
+                  <div>
+                    <label className="block text-xs font-medium text-slate-600 mb-1">Unidade</label>
+                    <select
+                      value={item.unidade}
+                      onChange={(e) => updateItem(index, 'unidade', e.target.value)}
+                      className="input"
+                    >
+                      <option value="UN">UN</option>
+                      <option value="KG">KG</option>
+                      <option value="M2">M2</option>
+                      <option value="M">M</option>
+                      <option value="L">L</option>
+                      <option value="CX">CX</option>
+                      <option value="PC">PC</option>
+                      <option value="SV">SV</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-slate-600 mb-1">Qtd</label>
+                    <input
+                      type="number"
+                      step="0.001"
+                      min="0.001"
+                      value={item.quantidade}
+                      onChange={(e) => updateItem(index, 'quantidade', e.target.value)}
+                      className="input"
+                      placeholder="1"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-slate-600 mb-1">Valor Unit. (R$) *</label>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      value={item.valorUnitario}
+                      onChange={(e) => handleCurrencyChange(e, index)}
+                      className="input"
+                      placeholder="0.00"
+                    />
+                  </div>
+                </div>
+
+                {item.valorUnitario && (
+                  <p className="text-right text-xs text-slate-500">
+                    Subtotal:{' '}
+                    <span className="font-semibold text-slate-700">
+                      R${' '}
+                      {((parseFloat(item.valorUnitario) || 0) * (parseFloat(item.quantidade) || 1))
+                        .toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    </span>
+                  </p>
+                )}
+              </div>
+            ))}
+
+            <button
+              type="button"
+              onClick={addItem}
+              className="w-full py-2 border-2 border-dashed border-slate-300 rounded-lg text-sm text-slate-500 hover:border-blue-400 hover:text-blue-600 transition-colors flex items-center justify-center gap-2"
+            >
+              <Plus className="w-4 h-4" />
+              Adicionar Produto
+            </button>
           </div>
 
           <div className="bg-slate-50 border border-slate-200 rounded-lg px-4 py-3">

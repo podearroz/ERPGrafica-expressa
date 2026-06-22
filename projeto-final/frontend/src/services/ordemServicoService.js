@@ -84,16 +84,22 @@ export const ordemServicoService = {
       .single();
     if (osError) throw osError;
 
-    // Cria item da OS com a descrição da venda
-    const { error: itemError } = await supabase.from("itens_os").insert([{
+    // Cria itens da OS a partir dos itens da venda
+    const itens = venda.itens || [{
+      descricao: venda.produtos || "Serviço/Produto",
+      quantidade: venda.quantidade || 1,
+      valorUnitario: venda.valor_unitario || venda.valor || 0,
+    }];
+    const itensOS = itens.map((item) => ({
       os_id: os.id,
       produto_id: null,
-      descricao: venda.produtos || "Serviço/Produto",
-      quantidade: 1,
-      valor_unitario: parseFloat(venda.valor) || 0,
-      valor_total: parseFloat(venda.valor) || 0,
+      descricao: item.descricao || "Serviço/Produto",
+      quantidade: parseFloat(item.quantidade) || 1,
+      valor_unitario: parseFloat(item.valorUnitario || item.valor_unitario) || 0,
+      valor_total: (parseFloat(item.quantidade) || 1) * (parseFloat(item.valorUnitario || item.valor_unitario) || 0),
       estoque_baixado: false,
-    }]);
+    }));
+    const { error: itemError } = await supabase.from("itens_os").insert(itensOS);
     if (itemError) throw itemError;
 
     return os;
@@ -186,7 +192,7 @@ export const ordemServicoService = {
   async atualizarDeVenda(vendaId, venda) {
     const { data: os } = await supabase
       .from("ordens_servico")
-      .select("id, itens:itens_os(id)")
+      .select("id")
       .eq("venda_id", vendaId)
       .maybeSingle();
 
@@ -202,13 +208,24 @@ export const ordemServicoService = {
       data_abertura: venda.data,
     }).eq("id", os.id);
 
-    if (os.itens?.[0]) {
-      await supabase.from("itens_os").update({
-        descricao: venda.produtos || "Serviço/Produto",
-        valor_unitario: venda.valor,
-        valor_total: venda.valor,
-      }).eq("id", os.itens[0].id);
-    }
+    // Recria os itens da OS
+    await supabase.from("itens_os").delete().eq("os_id", os.id);
+
+    const itens = venda.itens || [{
+      descricao: venda.produtos || "Serviço/Produto",
+      quantidade: venda.quantidade || 1,
+      valorUnitario: venda.valor_unitario || venda.valor || 0,
+    }];
+    const itensOS = itens.map((item) => ({
+      os_id: os.id,
+      produto_id: null,
+      descricao: item.descricao || "Serviço/Produto",
+      quantidade: parseFloat(item.quantidade) || 1,
+      valor_unitario: parseFloat(item.valorUnitario || item.valor_unitario) || 0,
+      valor_total: (parseFloat(item.quantidade) || 1) * (parseFloat(item.valorUnitario || item.valor_unitario) || 0),
+      estoque_baixado: false,
+    }));
+    await supabase.from("itens_os").insert(itensOS);
 
     return os;
   },
