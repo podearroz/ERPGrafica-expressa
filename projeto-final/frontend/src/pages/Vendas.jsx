@@ -11,7 +11,7 @@ import toast from 'react-hot-toast';
 import { ordemServicoService } from '@services/ordemServicoService';
 import { recebimentoService } from '@services/recebimentoService';
 
-const ITEM_VAZIO = { descricao: '', unidade: 'UN', quantidade: '1', valorUnitario: '' };
+const ITEM_VAZIO = { descricao: '', unidade: 'UN', quantidade: '1.00', valorUnitario: '' };
 
 const FORM_VAZIO = {
   tipoCliente: 'cadastrado',
@@ -201,9 +201,9 @@ const Vendas = () => {
   const removeItem = (index) =>
     setFormData((prev) => ({ ...prev, itens: prev.itens.filter((_, i) => i !== index) }));
 
-  const handleCurrencyChange = (e, index) => {
+  const handleCurrencyChange = (e, index, field) => {
     const digits = e.target.value.replace(/\D/g, '');
-    updateItem(index, 'valorUnitario', formatarMoeda(digits));
+    updateItem(index, field, formatarMoeda(digits));
   };
 
   const valorFinalCalculado = formData.itens
@@ -426,13 +426,12 @@ const Vendas = () => {
                   <div>
                     <label className="block text-xs font-medium text-slate-600 mb-1">Qtd</label>
                     <input
-                      type="number"
-                      step="0.001"
-                      min="0.001"
+                      type="text"
+                      inputMode="numeric"
                       value={item.quantidade}
-                      onChange={(e) => updateItem(index, 'quantidade', e.target.value)}
+                      onChange={(e) => handleCurrencyChange(e, index, 'quantidade')}
                       className="input"
-                      placeholder="1"
+                      placeholder="1.00"
                     />
                   </div>
                   <div>
@@ -441,7 +440,7 @@ const Vendas = () => {
                       type="text"
                       inputMode="numeric"
                       value={item.valorUnitario}
-                      onChange={(e) => handleCurrencyChange(e, index)}
+                      onChange={(e) => handleCurrencyChange(e, index, 'valorUnitario')}
                       className="input"
                       placeholder="0.00"
                     />
