@@ -346,14 +346,17 @@ export async function downloadDANFE(req, res) {
       + parseFloat(nota.outras_despesas || 0)
       - parseFloat(nota.desconto || 0);
 
-    // ── Barcode Code 128 ──────────────────────────────────────────────────
+    // ── Barcode Code 128 (só gera quando há chave real, não no preview) ───
+    const chaveReal = chave && chave.replace(/0/g, '').length > 0;
     let barcodeBuf = null;
-    try {
-      barcodeBuf = await bwipjs.toBuffer({
-        bcid: 'code128', text: chave || '00000000000000000000000000000000000000000000',
-        scale: 2, height: 12, includetext: false, backgroundcolor: 'ffffff',
-      });
-    } catch (_) {}
+    if (chaveReal) {
+      try {
+        barcodeBuf = await bwipjs.toBuffer({
+          bcid: 'code128', text: chave,
+          scale: 2, height: 12, includetext: false, backgroundcolor: 'ffffff',
+        });
+      } catch (_) {}
+    }
 
     // FIX #2: Logo da empresa (opcional — não exibe se arquivo não existir)
     const hasLogo = existsSync(LOGO_PATH);
@@ -401,7 +404,7 @@ export async function downloadDANFE(req, res) {
     // ════════════════════════════════════════════════════════════════════
     // 1. CANHOTO — tracejado | texto | data/assinatura | NF-e nº
     // ════════════════════════════════════════════════════════════════════
-    const cH    = 38;
+    const cH    = 46;
     const cTxtW = Math.floor(PW * 0.55);
     const cDtW  = Math.floor(PW * 0.25);
     const cNfW  = PW - cTxtW - cDtW;
@@ -447,9 +450,9 @@ export async function downloadDANFE(req, res) {
     // 2. CABEÇALHO — EMITENTE | DANFE | CHAVE + BARCODE
     // ════════════════════════════════════════════════════════════════════
     const hH     = 90;
-    const emiW   = Math.floor(PW * 0.50);   // ~283pt
-    const danfeW = Math.floor(PW * 0.22);   // ~124pt
-    const chvW   = PW - emiW - danfeW;      // ~160pt
+    const emiW   = Math.floor(PW * 0.55);   // ~312pt
+    const danfeW = Math.floor(PW * 0.25);   // ~141pt
+    const chvW   = PW - emiW - danfeW;      // ~114pt
 
     box(ML, y, emiW, hH);
     box(ML + emiW, y, danfeW, hH);
@@ -819,7 +822,19 @@ export async function downloadDANFE(req, res) {
       y += rowH;
     });
 
-    // Linha sólida abaixo do último produto (sem linhas vazias pontilhadas)
+    // Linhas em branco para completar mínimo de 15 linhas na tabela de produtos
+    const MIN_LINHAS = 15;
+    const linhasUsadas = itens.length;
+    for (let i = linhasUsadas; i < MIN_LINHAS; i++) {
+      cx = ML;
+      cols.forEach(c => {
+        box(cx, y, c.w, rowH);
+        cx += c.w;
+      });
+      y += rowH;
+    }
+
+    // Linha sólida abaixo do último produto
     hl(ML, y, PW);
     const pageBottom = 842 - 14;
 
