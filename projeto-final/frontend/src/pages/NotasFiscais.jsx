@@ -117,6 +117,7 @@ const ModalEmitirNFe = ({ nota, onClose, onSucesso }) => {
   const [aba, setAba] = useState(0);
   const [emitindo, setEmitindo] = useState(false);
   const [carregando, setCarregando] = useState(true);
+  const [gerandoPreview, setGerandoPreview] = useState(false);
 
   const hoje = new Date().toISOString().split('T')[0];
 
@@ -390,6 +391,68 @@ const ModalEmitirNFe = ({ nota, onClose, onSucesso }) => {
     } finally { setEmitindo(false); }
   };
 
+  const handlePreviewDanfe = async () => {
+    setGerandoPreview(true);
+    try {
+      const notaPreview = {
+        numero: ident.numero, serie: ident.serie,
+        data: ident.data, data_saida: ident.data_saida, hora_saida: ident.hora_saida,
+        natureza_operacao: ident.natureza_operacao,
+        protocolo: null, chave_acesso: null,
+        valor: totalNota,
+        itens: itens.map(it => ({
+          ...it,
+          quantidade: parseFloat(it.quantidade),
+          valor_unitario: parseFloat(it.valor_unitario),
+          valor_total: parseFloat(it.valor_total),
+          ipi_percent: parseFloat(it.ipi_percent) || 0,
+          icms_percent: parseFloat(it.icms_percent) || 0,
+        })),
+        destinatario_json: dest, destinatario_nome: dest.nome,
+        forma_pagamento: totais.forma_pagamento,
+        modalidade_frete: transp.modalidade_frete,
+        observacoes: detalhes.observacoes,
+        totais: {
+          bc_icms: parseFloat(totais.bc_icms) || 0,
+          valor_icms: parseFloat(totais.valor_icms) || 0,
+          bc_icms_st: parseFloat(totais.bc_icms_st) || 0,
+          valor_icms_st: parseFloat(totais.valor_icms_st) || 0,
+          valor_ipi: valorIpiTotal,
+          desconto: descontoVal,
+          valor_frete: freteVal,
+          valor_despesas: despesasVal,
+          valor_seguro: seguroVal,
+        },
+        venda: {
+          transporte: {
+            modalidade_frete: transp.modalidade_frete,
+            peso_bruto: parseFloat(transp.peso_bruto) || 0,
+            peso_liquido: parseFloat(transp.peso_liquido) || 0,
+            volumes: {
+              quantidade: parseInt(transp.volumes_qtd) || 0,
+              especie: transp.volumes_especie,
+              marca: transp.volumes_marca,
+              numeracao: transp.volumes_numeracao,
+            },
+          },
+        },
+      };
+      const res = await fetch(`${NFE_API_URL}/nfe/danfe`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ nota: notaPreview }),
+      });
+      if (!res.ok) throw new Error(`Erro ao gerar DANFE: ${res.status}`);
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      window.open(url, '_blank');
+    } catch (e) {
+      toast.error(`Erro ao gerar preview: ${e.message}`);
+    } finally {
+      setGerandoPreview(false);
+    }
+  };
+
   const ABAS = ['1. Identificação', '2. Destinatário', '3. Produtos', '4. Totais/Pgto', '5. Transporte/Det.', '6. Revisão'];
 
   return (
@@ -637,79 +700,67 @@ const ModalEmitirNFe = ({ nota, onClose, onSucesso }) => {
                 </div>
               )}
 
-              {/* ── ABA 5: Revisão ── */}
+              {/* ── ABA 5: Revisão / Preview DANFE ── */}
               {aba === 5 && (
                 <div className="space-y-4">
                   <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 flex items-start gap-2">
                     <CheckCircle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
-                    <p className="text-sm text-amber-800 font-medium">Revise todos os dados abaixo. Após emitir para a SEFAZ o cancelamento só é possível em até 24h e com justificativa.</p>
+                    <p className="text-sm text-amber-800 font-medium">Visualize a DANFE completa antes de emitir. Após enviar para a SEFAZ o cancelamento é restrito a 24h.</p>
                   </div>
 
-                  <SectionTitle>Identificação</SectionTitle>
-                  <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-sm">
-                    <div><span className="text-slate-500">Número:</span> <strong>{ident.numero}</strong></div>
-                    <div><span className="text-slate-500">Série:</span> <strong>{ident.serie}</strong></div>
-                    <div><span className="text-slate-500">Data Emissão:</span> <strong>{ident.data ? new Date(ident.data + 'T00:00:00').toLocaleDateString('pt-BR') : '—'}</strong></div>
-                    <div><span className="text-slate-500">Tipo:</span> <strong>{ident.tipo}</strong></div>
-                    <div className="col-span-2"><span className="text-slate-500">Natureza da Operação:</span> <strong>{ident.natureza_operacao}</strong></div>
-                  </div>
+                  {/* Botão principal — gera DANFE real em PDF com os dados atuais */}
+                  <button
+                    onClick={handlePreviewDanfe}
+                    disabled={gerandoPreview}
+                    className="w-full flex items-center justify-center gap-2 py-4 border-2 border-dashed border-blue-400 rounded-xl text-blue-700 font-semibold text-base hover:bg-blue-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <FileText className="w-6 h-6" />
+                    {gerandoPreview ? 'Gerando DANFE...' : 'Visualizar DANFE Completa (abre em nova aba)'}
+                  </button>
 
-                  <SectionTitle>Destinatário</SectionTitle>
-                  <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-sm">
-                    <div className="col-span-2"><span className="text-slate-500">Nome / Razão Social:</span> <strong>{dest.nome || '—'}</strong></div>
-                    <div><span className="text-slate-500">CPF / CNPJ:</span> <strong>{dest.cpf_cnpj || '—'}</strong></div>
-                    <div><span className="text-slate-500">IE:</span> <strong>{dest.ie || '—'}</strong></div>
-                    {dest.logradouro && (
-                      <div className="col-span-2">
-                        <span className="text-slate-500">Endereço:</span> <strong>{dest.logradouro}{dest.numero ? `, ${dest.numero}` : ''}{dest.bairro ? ` — ${dest.bairro}` : ''}{dest.municipio ? ` — ${dest.municipio}/${dest.uf}` : ''}</strong>
-                      </div>
-                    )}
-                  </div>
+                  <p className="text-xs text-center text-slate-400">O PDF gerado usa os mesmos dados que serão enviados para a SEFAZ — sem protocolo pois ainda não foi emitida.</p>
 
-                  <SectionTitle>Produtos / Serviços</SectionTitle>
+                  {/* Resumo dos dados principais */}
                   <div className="border border-slate-200 rounded-lg overflow-hidden">
-                    <table className="w-full text-xs">
-                      <thead className="bg-slate-100 text-slate-600">
-                        <tr>
-                          <th className="text-left px-3 py-2">Descrição</th>
-                          <th className="text-center px-2 py-2">NCM</th>
-                          <th className="text-center px-2 py-2">CFOP</th>
-                          <th className="text-right px-2 py-2">Qtd</th>
-                          <th className="text-right px-2 py-2">Vlr Unit.</th>
-                          <th className="text-right px-3 py-2">Vlr Total</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {itens.map((it, i) => (
-                          <tr key={i} className={i % 2 === 0 ? 'bg-white' : 'bg-slate-50'}>
-                            <td className="px-3 py-1.5">{it.descricao}</td>
-                            <td className="text-center px-2 py-1.5">{it.ncm}</td>
-                            <td className="text-center px-2 py-1.5">{it.cfop}</td>
-                            <td className="text-right px-2 py-1.5">{it.quantidade}</td>
-                            <td className="text-right px-2 py-1.5">{parseFloat(it.valor_unitario || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
-                            <td className="text-right px-3 py-1.5 font-semibold">{parseFloat(it.valor_total || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-
-                  <SectionTitle>Totais e Pagamento</SectionTitle>
-                  <div className="grid grid-cols-3 gap-x-6 gap-y-1 text-sm">
-                    <div><span className="text-slate-500">BC ICMS:</span> <strong>R$ {parseFloat(totais.bc_icms || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</strong></div>
-                    <div><span className="text-slate-500">Valor ICMS:</span> <strong>R$ {parseFloat(totais.valor_icms || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</strong></div>
-                    <div><span className="text-slate-500">Valor IPI:</span> <strong>R$ {valorIpiTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</strong></div>
-                    <div><span className="text-slate-500">Frete:</span> <strong>R$ {parseFloat(totais.valor_frete || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</strong></div>
-                    <div><span className="text-slate-500">Desconto:</span> <strong>R$ {parseFloat(totais.desconto_reais || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</strong></div>
-                    <div><span className="text-slate-500">Outras Desp.:</span> <strong>R$ {parseFloat(totais.valor_despesas || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</strong></div>
-                    <div><span className="text-slate-500">Pagamento:</span> <strong>{FORMAS_PAGAMENTO.find(f => f.value === totais.forma_pagamento)?.label || totais.forma_pagamento}</strong></div>
-                    <div><span className="text-slate-500">Condição:</span> <strong>{totais.condicao_pagamento}</strong></div>
-                    <div><span className="text-slate-500">Frete:</span> <strong>{MODALIDADES_FRETE.find(m => m.value === transp.modalidade_frete)?.label || 'Sem Frete'}</strong></div>
-                  </div>
-
-                  <div className="bg-blue-50 border border-blue-100 rounded-lg p-4">
-                    <p className="text-xs text-blue-600 font-medium mb-1">VALOR TOTAL DA NOTA</p>
-                    <p className="text-2xl font-bold text-blue-800">R$ {totalNota.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                    <div className="bg-slate-100 px-3 py-2 text-xs font-semibold text-slate-600 uppercase tracking-wide">Resumo da Nota</div>
+                    <div className="divide-y divide-slate-100">
+                      <div className="flex justify-between px-3 py-2 text-sm">
+                        <span className="text-slate-500">NF-e nº / Série</span>
+                        <strong>{ident.numero} / {ident.serie}</strong>
+                      </div>
+                      <div className="flex justify-between px-3 py-2 text-sm">
+                        <span className="text-slate-500">Data Emissão</span>
+                        <strong>{ident.data ? new Date(ident.data + 'T00:00:00').toLocaleDateString('pt-BR') : '—'}</strong>
+                      </div>
+                      <div className="flex justify-between px-3 py-2 text-sm">
+                        <span className="text-slate-500">Natureza da Operação</span>
+                        <strong>{ident.natureza_operacao}</strong>
+                      </div>
+                      <div className="flex justify-between px-3 py-2 text-sm">
+                        <span className="text-slate-500">Destinatário</span>
+                        <strong>{dest.nome || '—'}</strong>
+                      </div>
+                      <div className="flex justify-between px-3 py-2 text-sm">
+                        <span className="text-slate-500">CPF / CNPJ</span>
+                        <strong>{dest.cpf_cnpj || '—'}</strong>
+                      </div>
+                      <div className="flex justify-between px-3 py-2 text-sm">
+                        <span className="text-slate-500">Qtd. de Itens</span>
+                        <strong>{itens.length}</strong>
+                      </div>
+                      <div className="flex justify-between px-3 py-2 text-sm">
+                        <span className="text-slate-500">Valor dos Produtos</span>
+                        <strong>R$ {valorProdutos.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</strong>
+                      </div>
+                      <div className="flex justify-between px-3 py-2 text-sm">
+                        <span className="text-slate-500">Forma de Pagamento</span>
+                        <strong>{FORMAS_PAGAMENTO.find(f => f.value === totais.forma_pagamento)?.label || totais.forma_pagamento}</strong>
+                      </div>
+                      <div className="flex justify-between px-3 py-2 text-sm bg-blue-50">
+                        <span className="text-blue-700 font-semibold">VALOR TOTAL DA NOTA</span>
+                        <strong className="text-blue-800 text-base">R$ {totalNota.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</strong>
+                      </div>
+                    </div>
                   </div>
                 </div>
               )}
