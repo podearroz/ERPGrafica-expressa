@@ -125,7 +125,7 @@ const ModalEmitirNFe = ({ nota, onClose, onSucesso }) => {
   const [ident, setIdent] = useState({
     numero: nota.numero || '', serie: nota.serie || '1',
     data: nota.data || hoje, data_saida: nota.data || hoje,
-    hora_saida: new Date().toTimeString().slice(0, 5),
+    hora_saida: nota.hora_saida || '',
     natureza_operacao: 'Venda de produção do estabelecimento',
     tipo_operacao: '1', finalidade: '1', tipo: nota.tipo || 'NF-e',
     vendedor: '',

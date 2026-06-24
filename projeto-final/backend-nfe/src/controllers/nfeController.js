@@ -450,9 +450,9 @@ export async function downloadDANFE(req, res) {
     // 2. CABEÇALHO — EMITENTE | DANFE | CHAVE + BARCODE
     // ════════════════════════════════════════════════════════════════════
     const hH     = 90;
-    const emiW   = Math.floor(PW * 0.55);   // ~312pt
-    const danfeW = Math.floor(PW * 0.25);   // ~141pt
-    const chvW   = PW - emiW - danfeW;      // ~114pt
+    const emiW   = Math.floor(PW * 0.50);   // ~283pt  emitente
+    const danfeW = Math.floor(PW * 0.20);   // ~113pt  DANFE/NF
+    const chvW   = PW - emiW - danfeW;      // ~171pt  chave+barcode — precisa de ≥168pt para caber os 44 dígitos em linha única
 
     box(ML, y, emiW, hH);
     box(ML + emiW, y, danfeW, hH);
@@ -521,8 +521,8 @@ export async function downloadDANFE(req, res) {
     doc.save().fontSize(5.5).font('Helvetica-Bold').fillColor(CINZA)
        .text('CHAVE DE ACESSO', cX + 2, cvY, { width: chvW - 4, lineBreak: false }).restore();
     cvY += 8;
-    doc.save().fontSize(5.8).font('Courier-Bold').fillColor(PRETO)
-       .text(chaveGroups, cX + 2, cvY, { width: chvW - 4, align: 'center', lineBreak: true }).restore();
+    doc.save().fontSize(5.2).font('Courier-Bold').fillColor(PRETO)
+       .text(chaveGroups, cX + 2, cvY, { width: chvW - 4, align: 'center', lineBreak: false }).restore();
     cvY += 18;
     doc.save().fontSize(5.5).font('Helvetica').fillColor(PRETO)
        .text('Consulta de autenticidade no portal nacional da NF-e:',
