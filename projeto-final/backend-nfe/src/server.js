@@ -12,6 +12,7 @@ app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 
 app.use('/api/nfe', nfeRoutes);
+app.use('/nfe', nfeRoutes);        // alias — compatibilidade com VITE_NFE_API_URL sem /api
 
 app.get('/health', (req, res) => {
   res.json({ 
