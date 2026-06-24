@@ -61,6 +61,10 @@ const useNotaFiscalStore = create((set, get) => ({
     return notaFiscalService.getProximoNumero();
   },
 
+  incrementarNumero: async () => {
+    return notaFiscalService.incrementarNumero();
+  },
+
   getNotaByVenda: (vendaId) => {
     return get().notasFiscais.find((n) => n.venda_id === vendaId);
   },

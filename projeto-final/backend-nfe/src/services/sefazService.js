@@ -262,3 +262,74 @@ export async function consultarNFeSefaz(chave) {
     situacao:  infProt?.xMotivo,
   };
 }
+
+// ── Cancelamento de NF-e (evento 110111) ─────────────────────────────────
+
+function buildEventoCancelamento(chave, protocolo, justificativa, tpAmb, cnpj) {
+  const dhEvento = new Date().toISOString().replace(/\.\d{3}Z$/, '-03:00');
+  const idEvento = `ID110111${chave}01`;
+  return compact(`<?xml version="1.0" encoding="UTF-8"?><envEvento versao="1.00" xmlns="http://www.portalfiscal.inf.br/nfe"><idLote>${Date.now()}</idLote><evento versao="1.00"><infEvento Id="${idEvento}"><cOrgao>${CUF}</cOrgao><tpAmb>${tpAmb}</tpAmb><CNPJ>${cnpj}</CNPJ><chNFe>${chave}</chNFe><dhEvento>${dhEvento}</dhEvento><tpEvento>110111</tpEvento><nSeqEvento>1</nSeqEvento><verEvento>1.00</verEvento><detEvento versao="1.00"><descEvento>Cancelamento</descEvento><nProt>${protocolo}</nProt><xJust>${justificativa}</xJust></detEvento></infEvento></evento></envEvento>`);
+}
+
+function buildSoapEvento(eventoAssinado) {
+  const wsdl = 'http://www.portalfiscal.inf.br/nfe/wsdl/NFeRecepcaoEvento4';
+  const corpo = eventoAssinado.replace(/<\?xml[^?]*\?>\s*/i, '');
+  return compact(`<?xml version="1.0" encoding="UTF-8"?><soap12:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:soap12="http://www.w3.org/2003/05/soap-envelope"><soap12:Header><nfeCabecMsg xmlns="${wsdl}"><cUF>${CUF}</cUF><versaoDados>1.00</versaoDados></nfeCabecMsg></soap12:Header><soap12:Body><nfeDadosMsg xmlns="${wsdl}">${corpo}</nfeDadosMsg></soap12:Body></soap12:Envelope>`);
+}
+
+export function assinarEvento(xmlStr) {
+  const { privateKeyPem, certPem } = carregarCertificado();
+  const sig = new SignedXml({
+    privateKey: privateKeyPem,
+    publicCert: certPem,
+    signatureAlgorithm: 'http://www.w3.org/2000/09/xmldsig#rsa-sha1',
+    canonicalizationAlgorithm: 'http://www.w3.org/TR/2001/REC-xml-c14n-20010315',
+  });
+  sig.addReference({
+    xpath: "//*[local-name(.)='infEvento']",
+    transforms: [
+      'http://www.w3.org/2000/09/xmldsig#enveloped-signature',
+      'http://www.w3.org/TR/2001/REC-xml-c14n-20010315',
+    ],
+    digestAlgorithm: 'http://www.w3.org/2000/09/xmldsig#sha1',
+  });
+  sig.computeSignature(xmlStr);
+  console.log('[ASSINATURA EVENTO] Evento assinado com sucesso.');
+  return sig.getSignedXml();
+}
+
+export async function cancelarNFeSefaz(chave, protocolo, justificativa) {
+  const urls   = getSefazUrls();
+  const tpAmb  = process.env.NODE_ENV === 'producao' ? '1' : '2';
+  const cnpj   = (process.env.EMPRESA_CNPJ || '').replace(/\D/g, '');
+  const action = 'http://www.portalfiscal.inf.br/nfe/wsdl/NFeRecepcaoEvento4/nfeRecepcaoEvento';
+
+  console.log(`[CANCELAMENTO] Gerando evento para NF-e ${chave}...`);
+  const eventoXml    = buildEventoCancelamento(chave, protocolo, justificativa, tpAmb, cnpj);
+  const eventoAsssin = assinarEvento(eventoXml);
+  const soap         = buildSoapEvento(eventoAsssin);
+
+  console.log(`[CANCELAMENTO] Enviando para SEFAZ RO em ${urls.recepcaoEvento}...`);
+  const rawXml = await enviarSoap(urls.recepcaoEvento, soap, action);
+
+  const parsed   = await parseStringPromise(rawXml, { explicitArray: false, mergeAttrs: true });
+  const envelope = Object.values(parsed)[0];
+  const bodyNode = envelope['soap:Body'] || envelope['s:Body'];
+  const result   = bodyNode?.nfeResultMsg || bodyNode?.nfeDadosMsgResult;
+
+  const retEnv    = result?.retEnvEvento;
+  const retEvt    = retEnv?.retEvento;
+  const infRetEvt = retEvt?.infEvento;
+
+  const cStat   = infRetEvt?.cStat   || retEnv?.cStat   || '?';
+  const xMotivo = infRetEvt?.xMotivo || retEnv?.xMotivo || 'Sem retorno';
+  const nProt   = infRetEvt?.nProt;
+
+  console.log(`[CANCELAMENTO] cStat=${cStat} | ${xMotivo}`);
+
+  // 135 = Evento registrado e vinculado a NF-e cancelada
+  // 101 = Cancelamento de NF-e homologado (alguns ambientes)
+  const cancelado = ['135', '101', '155'].includes(String(cStat));
+
+  return { rawXml, cStat, xMotivo, protocolo: nProt, cancelado };
+}

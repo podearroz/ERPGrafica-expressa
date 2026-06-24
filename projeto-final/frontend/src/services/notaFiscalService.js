@@ -44,14 +44,29 @@ export const notaFiscalService = {
 
   async getProximoNumero() {
     const { data, error } = await supabase
-      .from("notas_fiscais")
-      .select("numero")
-      .order("numero", { ascending: false })
-      .limit(1);
+      .from("nfe_controle")
+      .select("proximo_numero")
+      .eq("ambiente", "producao")
+      .eq("serie", "1")
+      .single();
     if (error) throw error;
-    if (!data || data.length === 0) return "000001";
-    const ultimo = parseInt(data[0].numero) || 0;
-    return String(ultimo + 1).padStart(6, "0");
+    return String(data.proximo_numero).padStart(9, "0");
+  },
+
+  async incrementarNumero() {
+    const { data, error } = await supabase
+      .from("nfe_controle")
+      .select("proximo_numero")
+      .eq("ambiente", "producao")
+      .eq("serie", "1")
+      .single();
+    if (error) throw error;
+    const { error: upErr } = await supabase
+      .from("nfe_controle")
+      .update({ proximo_numero: data.proximo_numero + 1, ultima_atualizacao: new Date().toISOString() })
+      .eq("ambiente", "producao")
+      .eq("serie", "1");
+    if (upErr) throw upErr;
   },
 
   async criarDeOS(os) {

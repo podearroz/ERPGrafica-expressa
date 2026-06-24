@@ -6,9 +6,9 @@ import { existsSync } from 'fs';
 const require = createRequire(import.meta.url);
 const bwipjs = require('bwip-js');
 import { buildNFeXml } from '../services/nfeXmlBuilder.js';
-import { assinarXml, autorizarNFe, consultarNFeSefaz, checkStatusSefaz } from '../services/sefazService.js';
+import { assinarXml, autorizarNFe, consultarNFeSefaz, checkStatusSefaz, cancelarNFeSefaz } from '../services/sefazService.js';
 import { getInfoCertificado } from '../services/certificadoService.js';
-import { proximoNumeroNFe, salvarNFe, buscarNFePorChave, consultarSequencia } from '../services/supabaseNfeService.js';
+import { proximoNumeroNFe, salvarNFe, buscarNFePorChave, consultarSequencia, atualizarStatusNFe } from '../services/supabaseNfeService.js';
 
 // Caminho do logo da empresa (em backend-nfe/assets/)
 const __dirname_ctrl = dirname(fileURLToPath(import.meta.url));
@@ -173,21 +173,38 @@ export async function consultarNFe(req, res) {
 
 export async function cancelarNFe(req, res) {
   try {
-    const { chave }       = req.params;
-    const { justificativa } = req.body;
+    const { chave }                    = req.params;
+    const { justificativa, protocolo } = req.body;
 
-    if (!justificativa || justificativa.length < 15) {
+    if (!chave || chave.length !== 44) {
+      return res.status(400).json({ success: false, error: 'Chave deve ter 44 dígitos' });
+    }
+    if (!justificativa || justificativa.trim().length < 15) {
       return res.status(400).json({ success: false, error: 'Justificativa deve ter pelo menos 15 caracteres' });
     }
+    if (!protocolo) {
+      return res.status(400).json({ success: false, error: 'Protocolo de autorização obrigatório para cancelamento' });
+    }
 
-    // TODO: implementar envio do evento de cancelamento via NFeRecepcaoEvento4
-    console.log('❌ Cancelamento solicitado para:', chave);
+    console.log('❌ Cancelamento solicitado para NF-e:', chave);
+    const resultado = await cancelarNFeSefaz(chave, protocolo, justificativa.trim());
+
+    if (resultado.cancelado) {
+      await atualizarStatusNFe(chave, 'Cancelada');
+    }
 
     res.json({
-      success: false,
-      error: 'Cancelamento via evento ainda não implementado nesta versão. Acesse o Portal SEFAZ RO para cancelar manualmente.',
+      success:                resultado.cancelado,
+      cancelado:              resultado.cancelado,
+      cStat:                  resultado.cStat,
+      xMotivo:                resultado.xMotivo,
+      protocolo_cancelamento: resultado.protocolo,
+      message: resultado.cancelado
+        ? `NF-e cancelada com sucesso! ${resultado.xMotivo}`
+        : `SEFAZ rejeitou o cancelamento (${resultado.cStat}): ${resultado.xMotivo}`,
     });
   } catch (error) {
+    console.error('Erro ao cancelar NF-e:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 }

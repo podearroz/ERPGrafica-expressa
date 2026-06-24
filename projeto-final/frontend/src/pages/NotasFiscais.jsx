@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Edit, Trash2, Save, Send, FileText, CheckCircle, Clock, ChevronLeft, ChevronRight, PlusCircle, XCircle, Download, Eye, Copy, Key } from 'lucide-react';
+import { Plus, Edit, Trash2, Save, Send, FileText, CheckCircle, Clock, ChevronLeft, ChevronRight, PlusCircle, XCircle, Download, Eye, Copy, Key, Ban } from 'lucide-react';
 import useNotaFiscalStore from '@store/notaFiscalStore';
 import Card from '@components/common/Card';
 import Button from '@components/common/Button';
@@ -70,9 +70,10 @@ const ITEM_VAZIO = {
 
 // ─── Badge status ─────────────────────────────────────────────────────────────
 const STATUS_CFG = {
-  Pendente:  { label: 'Pendente',  className: 'bg-yellow-100 text-yellow-700', icon: Clock },
-  Emitida:   { label: 'Emitida',   className: 'bg-green-100 text-green-700',   icon: CheckCircle },
-  Cancelada: { label: 'Cancelada', className: 'bg-red-100 text-red-700',       icon: null },
+  Pendente:   { label: 'Pendente',   className: 'bg-yellow-100 text-yellow-700', icon: Clock },
+  Emitida:    { label: 'Emitida',    className: 'bg-green-100 text-green-700',   icon: CheckCircle },
+  Autorizada: { label: 'Autorizada', className: 'bg-green-100 text-green-700',   icon: CheckCircle },
+  Cancelada:  { label: 'Cancelada',  className: 'bg-red-100 text-red-700',       icon: Ban },
 };
 const BadgeStatus = ({ status }) => {
   const cfg = STATUS_CFG[status] || { label: status, className: 'bg-slate-100 text-slate-600' };
@@ -199,9 +200,9 @@ const ModalEmitirNFe = ({ nota, onClose, onSucesso }) => {
             descricao: item.descricao,
             ncm: '49111090', cfop: '5101',
             unidade: item.produto?.unidade_medida || 'UN',
-            quantidade: String(item.quantidade),
-            valor_unitario: String(item.valor_unitario),
-            valor_total: String(item.valor_total),
+            quantidade: String(parseFloat(item.quantidade) || 0),
+            valor_unitario: (parseFloat(item.valor_unitario) || 0).toFixed(2),
+            valor_total: (parseFloat(item.valor_total) || 0).toFixed(2),
             origem: '0', ipi_percent: '0', icms_percent: '0',
           })));
         } else if (venda) {
@@ -214,8 +215,8 @@ const ModalEmitirNFe = ({ nota, onClose, onSucesso }) => {
             ncm: '49111090', cfop: '5101',
             unidade: venda.unidade || 'UN',
             quantidade: String(qtd),
-            valor_unitario: String(vlUnit),
-            valor_total: String(qtd * vlUnit),
+            valor_unitario: vlUnit.toFixed(2),
+            valor_total: (qtd * vlUnit).toFixed(2),
             origem: '0', ipi_percent: '0', icms_percent: '0',
           }]);
         }
@@ -270,7 +271,7 @@ const ModalEmitirNFe = ({ nota, onClose, onSucesso }) => {
     return true;
   };
 
-  const avancar = () => { if (validar()) setAba(p => Math.min(p + 1, 4)); };
+  const avancar = () => { if (validar()) setAba(p => Math.min(p + 1, 5)); };
   const voltar  = () => setAba(p => Math.max(p - 1, 0));
 
   const handleEmitir = async () => {
@@ -380,7 +381,7 @@ const ModalEmitirNFe = ({ nota, onClose, onSucesso }) => {
     } finally { setEmitindo(false); }
   };
 
-  const ABAS = ['1. Identificação', '2. Destinatário', '3. Produtos', '4. Totais/Pgto', '5. Transporte/Det.'];
+  const ABAS = ['1. Identificação', '2. Destinatário', '3. Produtos', '4. Totais/Pgto', '5. Transporte/Det.', '6. Revisão'];
 
   return (
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
@@ -415,9 +416,8 @@ const ModalEmitirNFe = ({ nota, onClose, onSucesso }) => {
               {/* ── ABA 0: Identificação ── */}
               {aba === 0 && (
                 <div className="space-y-4">
-                  <div className="grid grid-cols-4 gap-3">
-                    <Inp label="Número *" value={ident.numero} onChange={e => setI('numero', e.target.value)} placeholder="Ex: 000039244" className="col-span-2" />
-                    <Inp label="Série *" value={ident.serie} onChange={e => setI('serie', e.target.value)} placeholder="001" />
+                  <div className="grid grid-cols-3 gap-3">
+                    <Inp label="Número *" value={ident.numero} onChange={e => setI('numero', e.target.value)} placeholder="Ex: 000039473" className="col-span-2" />
                     <Sel label="Tipo *" value={ident.tipo} onChange={e => setI('tipo', e.target.value)}
                       options={[{ value: 'NF-e', label: 'NF-e' }, { value: 'NFC-e', label: 'NFC-e' }]} />
                   </div>
@@ -505,7 +505,7 @@ const ModalEmitirNFe = ({ nota, onClose, onSucesso }) => {
                       </div>
                       <div className="grid grid-cols-3 gap-3">
                         <Inp label="Qtde. *" type="number" step="0.001" value={it.quantidade} onChange={e => updateItem(i, 'quantidade', e.target.value)} placeholder="Ex: 1" />
-                        <Inp label="Valor Unit. (R$) *" type="number" step="0.01" value={it.valor_unitario} onChange={e => updateItem(i, 'valor_unitario', e.target.value)} placeholder="Ex: 2000,00" />
+                        <Inp label="Valor Unit. (R$) *" type="number" step="0.01" value={it.valor_unitario} onChange={e => updateItem(i, 'valor_unitario', e.target.value)} onBlur={e => { const v = parseFloat(e.target.value); if (!isNaN(v)) updateItem(i, 'valor_unitario', v.toFixed(2)); }} placeholder="Ex: 2000,00" />
                         <F label="Valor Total (R$) — calculado">
                           <input className="input bg-slate-50 text-slate-600 font-semibold" readOnly value={it.valor_total} />
                         </F>
@@ -627,6 +627,83 @@ const ModalEmitirNFe = ({ nota, onClose, onSucesso }) => {
                   </F>
                 </div>
               )}
+
+              {/* ── ABA 5: Revisão ── */}
+              {aba === 5 && (
+                <div className="space-y-4">
+                  <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 flex items-start gap-2">
+                    <CheckCircle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                    <p className="text-sm text-amber-800 font-medium">Revise todos os dados abaixo. Após emitir para a SEFAZ o cancelamento só é possível em até 24h e com justificativa.</p>
+                  </div>
+
+                  <SectionTitle>Identificação</SectionTitle>
+                  <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-sm">
+                    <div><span className="text-slate-500">Número:</span> <strong>{ident.numero}</strong></div>
+                    <div><span className="text-slate-500">Série:</span> <strong>{ident.serie}</strong></div>
+                    <div><span className="text-slate-500">Data Emissão:</span> <strong>{ident.data ? new Date(ident.data + 'T00:00:00').toLocaleDateString('pt-BR') : '—'}</strong></div>
+                    <div><span className="text-slate-500">Tipo:</span> <strong>{ident.tipo}</strong></div>
+                    <div className="col-span-2"><span className="text-slate-500">Natureza da Operação:</span> <strong>{ident.natureza_operacao}</strong></div>
+                  </div>
+
+                  <SectionTitle>Destinatário</SectionTitle>
+                  <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-sm">
+                    <div className="col-span-2"><span className="text-slate-500">Nome / Razão Social:</span> <strong>{dest.nome || '—'}</strong></div>
+                    <div><span className="text-slate-500">CPF / CNPJ:</span> <strong>{dest.cpf_cnpj || '—'}</strong></div>
+                    <div><span className="text-slate-500">IE:</span> <strong>{dest.ie || '—'}</strong></div>
+                    {dest.logradouro && (
+                      <div className="col-span-2">
+                        <span className="text-slate-500">Endereço:</span> <strong>{dest.logradouro}{dest.numero ? `, ${dest.numero}` : ''}{dest.bairro ? ` — ${dest.bairro}` : ''}{dest.municipio ? ` — ${dest.municipio}/${dest.uf}` : ''}</strong>
+                      </div>
+                    )}
+                  </div>
+
+                  <SectionTitle>Produtos / Serviços</SectionTitle>
+                  <div className="border border-slate-200 rounded-lg overflow-hidden">
+                    <table className="w-full text-xs">
+                      <thead className="bg-slate-100 text-slate-600">
+                        <tr>
+                          <th className="text-left px-3 py-2">Descrição</th>
+                          <th className="text-center px-2 py-2">NCM</th>
+                          <th className="text-center px-2 py-2">CFOP</th>
+                          <th className="text-right px-2 py-2">Qtd</th>
+                          <th className="text-right px-2 py-2">Vlr Unit.</th>
+                          <th className="text-right px-3 py-2">Vlr Total</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {itens.map((it, i) => (
+                          <tr key={i} className={i % 2 === 0 ? 'bg-white' : 'bg-slate-50'}>
+                            <td className="px-3 py-1.5">{it.descricao}</td>
+                            <td className="text-center px-2 py-1.5">{it.ncm}</td>
+                            <td className="text-center px-2 py-1.5">{it.cfop}</td>
+                            <td className="text-right px-2 py-1.5">{it.quantidade}</td>
+                            <td className="text-right px-2 py-1.5">{parseFloat(it.valor_unitario || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+                            <td className="text-right px-3 py-1.5 font-semibold">{parseFloat(it.valor_total || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  <SectionTitle>Totais e Pagamento</SectionTitle>
+                  <div className="grid grid-cols-3 gap-x-6 gap-y-1 text-sm">
+                    <div><span className="text-slate-500">BC ICMS:</span> <strong>R$ {parseFloat(totais.bc_icms || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</strong></div>
+                    <div><span className="text-slate-500">Valor ICMS:</span> <strong>R$ {parseFloat(totais.valor_icms || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</strong></div>
+                    <div><span className="text-slate-500">Valor IPI:</span> <strong>R$ {valorIpiTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</strong></div>
+                    <div><span className="text-slate-500">Frete:</span> <strong>R$ {parseFloat(totais.valor_frete || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</strong></div>
+                    <div><span className="text-slate-500">Desconto:</span> <strong>R$ {parseFloat(totais.desconto_reais || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</strong></div>
+                    <div><span className="text-slate-500">Outras Desp.:</span> <strong>R$ {parseFloat(totais.valor_despesas || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</strong></div>
+                    <div><span className="text-slate-500">Pagamento:</span> <strong>{FORMAS_PAGAMENTO.find(f => f.value === totais.forma_pagamento)?.label || totais.forma_pagamento}</strong></div>
+                    <div><span className="text-slate-500">Condição:</span> <strong>{totais.condicao_pagamento}</strong></div>
+                    <div><span className="text-slate-500">Frete:</span> <strong>{MODALIDADES_FRETE.find(m => m.value === transp.modalidade_frete)?.label || 'Sem Frete'}</strong></div>
+                  </div>
+
+                  <div className="bg-blue-50 border border-blue-100 rounded-lg p-4">
+                    <p className="text-xs text-blue-600 font-medium mb-1">VALOR TOTAL DA NOTA</p>
+                    <p className="text-2xl font-bold text-blue-800">R$ {totalNota.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                  </div>
+                </div>
+              )}
             </>
           )}
         </div>
@@ -636,13 +713,13 @@ const ModalEmitirNFe = ({ nota, onClose, onSucesso }) => {
           <Button variant="secondary" onClick={aba === 0 ? onClose : voltar}>
             {aba === 0 ? 'Cancelar' : <><ChevronLeft className="w-4 h-4 mr-1" />Voltar</>}
           </Button>
-          {aba < 4 ? (
+          {aba < 5 ? (
             <Button onClick={avancar}>
-              Avançar <ChevronRight className="w-4 h-4 ml-1" />
+              {aba === 4 ? 'Revisar antes de emitir' : 'Avançar'} <ChevronRight className="w-4 h-4 ml-1" />
             </Button>
           ) : (
             <Button icon={Send} onClick={handleEmitir} disabled={emitindo}>
-              {emitindo ? 'Emitindo...' : 'Salvar e Emitir'}
+              {emitindo ? 'Emitindo...' : 'Confirmar e Emitir para SEFAZ'}
             </Button>
           )}
         </div>
@@ -655,6 +732,91 @@ const ModalEmitirNFe = ({ nota, onClose, onSucesso }) => {
 const FORM_VAZIO = {
   numero: '', serie: '1', data: new Date().toISOString().split('T')[0],
   cliente: '', tipo: 'NF-e', valor: '', status: 'Pendente',
+};
+
+// ─── Modal de Cancelamento ────────────────────────────────────────────────────
+const ModalCancelarNFe = ({ nota, onClose, onCancelado }) => {
+  const [justificativa, setJustificativa] = useState('');
+  const [cancelando, setCancelando] = useState(false);
+
+  const handleCancelar = async () => {
+    if (justificativa.trim().length < 15) {
+      toast.error('Justificativa deve ter no mínimo 15 caracteres.'); return;
+    }
+    if (!nota.protocolo) {
+      toast.error('Protocolo de autorização não encontrado. Cancele diretamente no portal SEFAZ RO.'); return;
+    }
+    setCancelando(true);
+    try {
+      const res = await fetch(`${NFE_API_URL}/nfe/cancelar/${nota.chave_acesso}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ justificativa: justificativa.trim(), protocolo: nota.protocolo }),
+      });
+      const resultado = await res.json();
+      if (resultado.success || resultado.cancelado) {
+        toast.success('NF-e cancelada com sucesso!');
+        await onCancelado(nota.id);
+        onClose();
+      } else {
+        toast.error(`SEFAZ: ${resultado.message || resultado.error}`);
+      }
+    } catch (e) {
+      toast.error(`Erro ao cancelar: ${e.message}`);
+    } finally {
+      setCancelando(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-md">
+        <div className="px-6 py-4 border-b flex items-center justify-between">
+          <div>
+            <h2 className="text-lg font-bold text-red-700">Cancelar NF-e nº {nota.numero}</h2>
+            <p className="text-xs text-slate-500">Envia evento de cancelamento para a SEFAZ</p>
+          </div>
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-600"><XCircle className="w-6 h-6" /></button>
+        </div>
+        <div className="px-6 py-4 space-y-4">
+          <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-sm text-red-700 space-y-1">
+            <p className="font-semibold">⚠️ Atenção</p>
+            <p>O cancelamento só é permitido até <strong>24h após a autorização</strong>. A SEFAZ pode rejeitar se o prazo expirou ou a nota já foi escriturada pelo destinatário.</p>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">
+              Justificativa <span className="text-red-500">*</span>
+              <span className="text-slate-400 font-normal ml-1">(mín. 15 caracteres)</span>
+            </label>
+            <textarea
+              className="input w-full resize-none"
+              rows={3}
+              value={justificativa}
+              onChange={e => setJustificativa(e.target.value)}
+              placeholder="Ex: Nota emitida com dados incorretos do destinatário"
+              maxLength={255}
+            />
+            <p className="text-xs text-slate-400 mt-1 text-right">{justificativa.length}/255</p>
+          </div>
+          <div className="text-xs text-slate-500 space-y-0.5">
+            <p><span className="font-medium">Chave:</span> {nota.chave_acesso || '—'}</p>
+            <p><span className="font-medium">Protocolo:</span> {nota.protocolo || '—'}</p>
+          </div>
+        </div>
+        <div className="px-6 py-4 border-t flex justify-between">
+          <Button variant="secondary" onClick={onClose}>Voltar</Button>
+          <button
+            onClick={handleCancelar}
+            disabled={cancelando || justificativa.trim().length < 15}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold bg-red-600 text-white hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            <Ban className="w-4 h-4" />
+            {cancelando ? 'Cancelando...' : 'Confirmar Cancelamento'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 };
 
 const ModalDetalhesNFe = ({ nota, onClose }) => {
@@ -766,13 +928,15 @@ const ModalDetalhesNFe = ({ nota, onClose }) => {
 };
 
 const NotasFiscais = () => {
-  const { notasFiscais, loading, fetchNotasFiscais, addNotaFiscal, updateNotaFiscal, deleteNotaFiscal, getProximoNumero } = useNotaFiscalStore();
+  const { notasFiscais, loading, fetchNotasFiscais, addNotaFiscal, updateNotaFiscal, deleteNotaFiscal, getProximoNumero, incrementarNumero } = useNotaFiscalStore();
   const [showModal, setShowModal] = useState(false);
   const [showEmitirModal, setShowEmitirModal] = useState(false);
   const [showDetalhesModal, setShowDetalhesModal] = useState(false);
+  const [showCancelarModal, setShowCancelarModal] = useState(false);
   const [editingNota, setEditingNota] = useState(null);
   const [notaParaEmitir, setNotaParaEmitir] = useState(null);
   const [notaDetalhes, setNotaDetalhes] = useState(null);
+  const [notaParaCancelar, setNotaParaCancelar] = useState(null);
   const [filtroStatus, setFiltroStatus] = useState('TODOS');
   const [formData, setFormData] = useState(FORM_VAZIO);
 
@@ -827,6 +991,7 @@ const NotasFiscais = () => {
           onClose={() => { setShowEmitirModal(false); setNotaParaEmitir(null); }}
           onSucesso={async (id, updates) => {
             const updated = await updateNotaFiscal(id, updates);
+            await incrementarNumero();
             // Abre detalhes com dados atualizados automaticamente
             setNotaDetalhes(updated || notasFiscais.find(n => n.id === id));
             setShowDetalhesModal(true);
@@ -835,6 +1000,14 @@ const NotasFiscais = () => {
       {showDetalhesModal && notaDetalhes && (
         <ModalDetalhesNFe nota={notaDetalhes}
           onClose={() => { setShowDetalhesModal(false); setNotaDetalhes(null); }} />
+      )}
+      {showCancelarModal && notaParaCancelar && (
+        <ModalCancelarNFe nota={notaParaCancelar}
+          onClose={() => { setShowCancelarModal(false); setNotaParaCancelar(null); }}
+          onCancelado={async (id) => {
+            await updateNotaFiscal(id, { status: 'Cancelada' });
+            fetchNotasFiscais();
+          }} />
       )}
 
       <Card>
@@ -902,6 +1075,12 @@ const NotasFiscais = () => {
                     <Send className="w-4 h-4" />
                   </button>
                 )}
+                {(nota.status === 'Emitida' || nota.status === 'Autorizada') && nota.chave_acesso && (
+                  <button onClick={() => { setNotaParaCancelar(nota); setShowCancelarModal(true); }}
+                    className="text-red-500 hover:text-red-700" title="Cancelar NF-e">
+                    <Ban className="w-4 h-4" />
+                  </button>
+                )}
                 <button onClick={() => abrirModal(nota)} className="text-blue-600 hover:text-blue-700" title="Editar">
                   <Edit className="w-4 h-4" />
                 </button>
@@ -926,10 +1105,7 @@ const NotasFiscais = () => {
         footer={<><Button variant="secondary" onClick={() => setShowModal(false)}>Cancelar</Button>
           <Button icon={Save} onClick={handleSave} disabled={loading}>Salvar</Button></>}>
         <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <Input label="Número *" value={formData.numero} onChange={e => setFormData(p => ({ ...p, numero: e.target.value }))} />
-            <Input label="Série" value={formData.serie} onChange={e => setFormData(p => ({ ...p, serie: e.target.value }))} />
-          </div>
+          <Input label="Número *" value={formData.numero} onChange={e => setFormData(p => ({ ...p, numero: e.target.value }))} />
           <Input label="Data *" type="date" value={formData.data} onChange={e => setFormData(p => ({ ...p, data: e.target.value }))} />
           <Input label="Cliente *" value={formData.cliente} onChange={e => setFormData(p => ({ ...p, cliente: e.target.value }))} />
           <div className="grid grid-cols-2 gap-4">
