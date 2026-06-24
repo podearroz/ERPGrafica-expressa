@@ -173,6 +173,14 @@ const ModalEmitirNFe = ({ nota, onClose, onSucesso }) => {
   useEffect(() => {
     const carregar = async () => {
       try {
+        // Sempre busca o número correto do nfe_controle (independente de ter venda)
+        const { data: ctrl } = await supabase
+          .from('nfe_controle').select('proximo_numero')
+          .eq('ambiente', 'producao').eq('serie', '1').single();
+        if (ctrl?.proximo_numero) {
+          setIdent(p => ({ ...p, numero: String(ctrl.proximo_numero).padStart(9, '0') }));
+        }
+
         if (!nota.venda_id) return;
         const { data: venda } = await supabase
           .from('vendas').select('*, cliente:clientes(*)')
@@ -361,6 +369,7 @@ const ModalEmitirNFe = ({ nota, onClose, onSucesso }) => {
 
       await onSucesso(nota.id, {
         status: 'Emitida',
+        numero: String(resultado.data?.numero || ident.numero),
         chave_acesso: resultado.data?.chaveAcesso || null,
         protocolo: resultado.data?.protocolo || null,
         valor: totalNota,
