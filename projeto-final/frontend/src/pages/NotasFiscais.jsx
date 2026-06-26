@@ -118,6 +118,7 @@ const ModalEmitirNFe = ({ nota, onClose, onSucesso }) => {
   const [emitindo, setEmitindo] = useState(false);
   const [carregando, setCarregando] = useState(true);
   const [gerandoPreview, setGerandoPreview] = useState(false);
+  const [clientes, setClientes] = useState([]);
 
   const hoje = new Date().toISOString().split('T')[0];
 
@@ -174,12 +175,24 @@ const ModalEmitirNFe = ({ nota, onClose, onSucesso }) => {
   useEffect(() => {
     const carregar = async () => {
       try {
+        // Carrega lista de clientes cadastrados para o seletor
+        const { data: listaCli } = await supabase
+          .from('clientes').select('*').order('nome');
+        if (listaCli) setClientes(listaCli);
+
         // Sempre busca o número correto do nfe_controle (independente de ter venda)
         const { data: ctrl } = await supabase
           .from('nfe_controle').select('proximo_numero')
           .eq('ambiente', 'producao').eq('serie', '1').single();
         if (ctrl?.proximo_numero) {
           setIdent(p => ({ ...p, numero: String(ctrl.proximo_numero).padStart(9, '0') }));
+        }
+
+        // Se não tem venda mas a nota tem cliente_id guardado no destinatario_json, pré-carrega
+        const clienteIdSalvo = nota.destinatario_json?.cliente_id;
+        if (!nota.venda_id && clienteIdSalvo) {
+          const { data: cli } = await supabase.from('clientes').select('*').eq('id', clienteIdSalvo).single();
+          if (cli) preencherDestDeCliente(cli);
         }
 
         if (!nota.venda_id) return;
@@ -191,6 +204,7 @@ const ModalEmitirNFe = ({ nota, onClose, onSucesso }) => {
           setDest(p => ({
             ...p,
             nome: c.nome || p.nome, cpf_cnpj: c.cpf_cnpj || '',
+            ie: c.inscricao_estadual || '',
             email: c.email || '', telefone: c.telefone || '',
             logradouro: c.logradouro || c.endereco || '',
             numero: c.numero || '', complemento: c.complemento || '',
@@ -234,6 +248,22 @@ const ModalEmitirNFe = ({ nota, onClose, onSucesso }) => {
     };
     carregar();
   }, [nota.id, nota.venda_id]);
+
+  const preencherDestDeCliente = (c) => setDest(p => ({
+    ...p,
+    nome: c.nome || '',
+    cpf_cnpj: c.cpf_cnpj || '',
+    ie: c.inscricao_estadual || '',
+    email: c.email || '',
+    telefone: c.telefone || '',
+    logradouro: c.logradouro || '',
+    numero: c.numero || '',
+    complemento: c.complemento || '',
+    bairro: c.bairro || '',
+    municipio: c.municipio || '',
+    uf: c.uf || '',
+    cep: c.cep || '',
+  }));
 
   const setI = (f, v) => setIdent(p => ({ ...p, [f]: v }));
   const setD = (f, v) => setDest(p => ({ ...p, [f]: v }));
@@ -461,7 +491,7 @@ const ModalEmitirNFe = ({ nota, onClose, onSucesso }) => {
         {/* Header */}
         <div className="px-6 py-4 border-b flex items-center justify-between flex-shrink-0">
           <div>
-            <h2 className="text-lg font-bold text-slate-800">Emitir NF-e nº {nota.numero}</h2>
+            <h2 className="text-lg font-bold text-slate-800">Emitir NF-e nº {ident.numero || nota.numero}</h2>
             <p className="text-xs text-slate-500">Preencha todos os campos e clique em Emitir na última aba</p>
           </div>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-600"><XCircle className="w-6 h-6" /></button>
@@ -512,6 +542,26 @@ const ModalEmitirNFe = ({ nota, onClose, onSucesso }) => {
               {/* ── ABA 1: Destinatário ── */}
               {aba === 1 && (
                 <div className="space-y-4">
+                  {clientes.length > 0 && (
+                    <F label="Carregar cliente cadastrado">
+                      <select
+                        className="input"
+                        defaultValue=""
+                        onChange={e => {
+                          const c = clientes.find(x => x.id === e.target.value);
+                          if (c) preencherDestDeCliente(c);
+                        }}
+                      >
+                        <option value="">— Selecionar para preencher campos automaticamente —</option>
+                        {clientes.map(c => (
+                          <option key={c.id} value={c.id}>
+                            {c.nome_fantasia ? `${c.nome_fantasia} (${c.nome})` : c.nome}
+                            {c.cpf_cnpj ? ` — ${c.cpf_cnpj}` : ''}
+                          </option>
+                        ))}
+                      </select>
+                    </F>
+                  )}
                   <Inp label="Nome / Razão Social *" value={dest.nome} onChange={e => setD('nome', e.target.value)} placeholder="Ex: ROVEMA VEICULOS E MAQUINAS LTDA." />
                   <div className="grid grid-cols-2 gap-3">
                     <Inp label="CNPJ / CPF *" value={dest.cpf_cnpj} onChange={e => setD('cpf_cnpj', e.target.value)} placeholder="Ex: 02.118.203/0002-93" />
@@ -791,7 +841,7 @@ const ModalEmitirNFe = ({ nota, onClose, onSucesso }) => {
 // ─── Página Principal ─────────────────────────────────────────────────────────
 const FORM_VAZIO = {
   numero: '', serie: '1', data: new Date().toISOString().split('T')[0],
-  cliente: '', tipo: 'NF-e', valor: '', status: 'Pendente',
+  cliente: '', cliente_id: '', tipo: 'NF-e', valor: '', status: 'Pendente',
 };
 
 // ─── Modal de Cancelamento ────────────────────────────────────────────────────
@@ -999,8 +1049,13 @@ const NotasFiscais = () => {
   const [notaParaCancelar, setNotaParaCancelar] = useState(null);
   const [filtroStatus, setFiltroStatus] = useState('TODOS');
   const [formData, setFormData] = useState(FORM_VAZIO);
+  const [clientesLista, setClientesLista] = useState([]);
 
-  useEffect(() => { fetchNotasFiscais(); }, []);
+  useEffect(() => {
+    fetchNotasFiscais();
+    supabase.from('clientes').select('id, nome, nome_fantasia, cpf_cnpj').order('nome')
+      .then(({ data }) => { if (data) setClientesLista(data); });
+  }, []);
 
   const notasExibidas = filtroStatus === 'TODOS' ? notasFiscais : notasFiscais.filter(n => n.status === filtroStatus);
   const contadores = {
@@ -1012,7 +1067,11 @@ const NotasFiscais = () => {
   const abrirModal = async (nota = null) => {
     if (nota) {
       setEditingNota(nota);
-      setFormData({ numero: nota.numero, serie: nota.serie || '1', data: nota.data, cliente: nota.cliente, tipo: nota.tipo, valor: nota.valor, status: nota.status });
+      setFormData({
+        numero: nota.numero, serie: nota.serie || '1', data: nota.data,
+        cliente: nota.cliente, cliente_id: nota.destinatario_json?.cliente_id || '',
+        tipo: nota.tipo, valor: nota.valor, status: nota.status,
+      });
     } else {
       setEditingNota(null);
       const num = await getProximoNumero();
@@ -1026,7 +1085,12 @@ const NotasFiscais = () => {
       toast.error('Preencha todos os campos obrigatórios!'); return;
     }
     try {
-      const payload = { ...formData, valor: parseFloat(formData.valor) };
+      const { cliente_id, ...rest } = formData;
+      const payload = {
+        ...rest,
+        valor: parseFloat(formData.valor),
+        ...(cliente_id ? { destinatario_json: { cliente_id } } : {}),
+      };
       if (editingNota) { await updateNotaFiscal(editingNota.id, payload); toast.success('Nota fiscal atualizada!'); }
       else { await addNotaFiscal(payload); toast.success('Nota fiscal cadastrada!'); }
       setShowModal(false);
@@ -1167,7 +1231,43 @@ const NotasFiscais = () => {
         <div className="space-y-4">
           <Input label="Número *" value={formData.numero} onChange={e => setFormData(p => ({ ...p, numero: e.target.value }))} />
           <Input label="Data *" type="date" value={formData.data} onChange={e => setFormData(p => ({ ...p, data: e.target.value }))} />
-          <Input label="Cliente *" value={formData.cliente} onChange={e => setFormData(p => ({ ...p, cliente: e.target.value }))} />
+
+          {/* Seletor de cliente cadastrado */}
+          {clientesLista.length > 0 && (
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">
+                Cliente cadastrado <span className="text-slate-400 font-normal">(ou preencha manualmente abaixo)</span>
+              </label>
+              <select
+                className="input"
+                value={formData.cliente_id}
+                onChange={e => {
+                  const c = clientesLista.find(x => x.id === e.target.value);
+                  setFormData(p => ({
+                    ...p,
+                    cliente_id: e.target.value,
+                    cliente: c ? (c.nome_fantasia || c.nome) : p.cliente,
+                  }));
+                }}
+              >
+                <option value="">— Selecionar cliente —</option>
+                {clientesLista.map(c => (
+                  <option key={c.id} value={c.id}>
+                    {c.nome_fantasia ? `${c.nome_fantasia} (${c.nome})` : c.nome}
+                    {c.cpf_cnpj ? ` — ${c.cpf_cnpj}` : ''}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          <Input
+            label="Nome do destinatário *"
+            value={formData.cliente}
+            onChange={e => setFormData(p => ({ ...p, cliente: e.target.value, cliente_id: '' }))}
+            placeholder="Nome/Razão Social do destinatário"
+          />
+
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Tipo *</label>
