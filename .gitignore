@@ -5,6 +5,7 @@ node_modules/
 *.pdf
 *.xml
 *.png
+!projeto-final/backend-nfe/assets/*.png
 *.jpg
 *.jpeg
 *.jfif
