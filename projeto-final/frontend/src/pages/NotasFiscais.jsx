@@ -401,6 +401,10 @@ const ModalEmitirNFe = ({ nota, onClose, onSucesso }) => {
       await onSucesso(nota.id, {
         status: 'Emitida',
         numero: String(resultado.data?.numero || ident.numero),
+        serie: ident.serie,
+        data: ident.data,
+        tipo: ident.tipo,
+        cliente: dest.nome,
         chave_acesso: resultado.data?.chaveAcesso || null,
         protocolo: resultado.data?.protocolo || null,
         valor: totalNota,
@@ -1064,6 +1068,17 @@ const NotasFiscais = () => {
     Emitida: notasFiscais.filter(n => n.status === 'Emitida').length,
   };
 
+  const abrirNovaEmissao = async () => {
+    const num = await getProximoNumero();
+    setNotaParaEmitir({
+      id: null, numero: num, serie: '1',
+      data: new Date().toISOString().split('T')[0],
+      cliente: '', tipo: 'NF-e', valor: 0,
+      venda_id: null, destinatario_json: null,
+    });
+    setShowEmitirModal(true);
+  };
+
   const abrirModal = async (nota = null) => {
     if (nota) {
       setEditingNota(nota);
@@ -1114,10 +1129,14 @@ const NotasFiscais = () => {
         <ModalEmitirNFe nota={notaParaEmitir}
           onClose={() => { setShowEmitirModal(false); setNotaParaEmitir(null); }}
           onSucesso={async (id, updates) => {
-            const updated = await updateNotaFiscal(id, updates);
+            let saved;
+            if (id) {
+              saved = await updateNotaFiscal(id, updates);
+            } else {
+              saved = await addNotaFiscal(updates);
+            }
             await incrementarNumero();
-            // Abre detalhes com dados atualizados automaticamente
-            setNotaDetalhes(updated || notasFiscais.find(n => n.id === id));
+            setNotaDetalhes(saved || notasFiscais.find(n => n.id === id));
             setShowDetalhesModal(true);
           }} />
       )}
@@ -1148,7 +1167,7 @@ const NotasFiscais = () => {
                 ))}
               </div>
             </div>
-            <Button icon={Plus} onClick={() => abrirModal()}>Nova Nota Fiscal</Button>
+            <Button icon={Plus} onClick={abrirNovaEmissao}>Nova Nota Fiscal</Button>
           </div>
         </div>
 
