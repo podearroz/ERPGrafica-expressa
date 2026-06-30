@@ -63,6 +63,15 @@ export async function emitirNFe(req, res) {
       });
     }
 
+    // ── Valida CPF/CNPJ do destinatário ANTES de consumir número ───────────
+    const docDestValidacao = String(destinatario.cpf_cnpj || '').replace(/\D/g, '');
+    if (docDestValidacao && docDestValidacao.length !== 11 && docDestValidacao.length !== 14) {
+      return res.status(400).json({
+        success: false,
+        error: `CPF/CNPJ do destinatário inválido: "${destinatario.cpf_cnpj}" possui ${docDestValidacao.length} dígitos. CPF deve ter 11 e CNPJ 14 dígitos.`,
+      });
+    }
+
     // ── 1. Pega próximo número do banco (atômico) ──────────────────────────
     console.log('🔢 Obtendo próximo número NF-e do banco...');
     const numero = await proximoNumeroNFe(String(serie));
