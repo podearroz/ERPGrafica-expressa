@@ -141,7 +141,7 @@ const ModalEmitirNFe = ({ nota, onClose, onSucesso }) => {
 
   const [itens, setItens] = useState([{
     ...ITEM_VAZIO,
-    descricao: `Serviços/Produtos – ${nota.cliente || ''}`,
+    descricao: `Servicos/Produtos - ${nota.cliente || ''}`,
     valor_unitario: String(nota.valor || ''),
     valor_total: String(nota.valor || ''),
   }]);

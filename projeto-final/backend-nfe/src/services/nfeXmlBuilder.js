@@ -73,7 +73,7 @@ export function buildNFeXml({ numero, serie = 1, naturezaOperacao = 'Venda de pr
       prod: {
         cProd:    item.codigo || String(idx + 1).padStart(3, '0'),
         cEAN:     'SEM GTIN',
-        xProd:    (item.descricao || item.nome || 'Produto').replace(/[\x00-\x1F\x7F]/g, ' ').trim().substring(0, 120) || 'Produto',
+        xProd:    (item.descricao || item.nome || 'Produto').replace(/[^\x20-\x7E\xA0-\xFF]/g, ' ').trim().substring(0, 120) || 'Produto',
         NCM:      item.ncm || '49111090',
         CFOP:     item.cfop || '5101',
         uCom:     item.unidade || 'UN',
