@@ -161,22 +161,31 @@ export function buildNFeXml({ numero, serie = 1, naturezaOperacao = 'Venda de pr
           IE:  (process.env.EMPRESA_IE || '').replace(/\D/g, ''),
           CRT: process.env.EMPRESA_CRT || '1',
         },
-        dest: {
-          ...destNode,
-          xNome: xNomeDest,
-          enderDest: {
-            xLgr:    destinatario.logradouro || 'Rua Nao Informada',
-            nro:     destinatario.numero || 'SN',
-            xBairro: destinatario.bairro || 'Nao Informado',
-            cMun:    destinatario.codigo_municipio || '1101708',
-            xMun:    destinatario.municipio || 'VILHENA',
-            UF:      destinatario.uf || 'RO',
-            CEP:     (destinatario.cep || '76982249').replace(/\D/g, ''),
-            cPais:   '1058',
-            xPais:   'Brasil',
-          },
-          indIEDest: '9',   // não contribuinte
-        },
+        dest: (() => {
+          const ieRaw = String(destinatario.ie || '').trim();
+          const ieIsento = ieRaw.toUpperCase() === 'ISENTO';
+          const ieClean = ieIsento ? 'ISENTO' : ieRaw.replace(/\D/g, '');
+          const indIEDest = destinatario.ind_ie
+            ? String(destinatario.ind_ie)
+            : (ieClean && !ieIsento ? '1' : ieIsento ? '2' : '9');
+          return {
+            ...destNode,
+            xNome: xNomeDest,
+            enderDest: {
+              xLgr:    destinatario.logradouro || 'Rua Nao Informada',
+              nro:     destinatario.numero || 'SN',
+              xBairro: destinatario.bairro || 'Nao Informado',
+              cMun:    destinatario.codigo_municipio || '1101708',
+              xMun:    destinatario.municipio || 'VILHENA',
+              UF:      destinatario.uf || 'RO',
+              CEP:     (destinatario.cep || '76982249').replace(/\D/g, ''),
+              cPais:   '1058',
+              xPais:   'Brasil',
+            },
+            indIEDest,
+            ...(ieClean ? { IE: ieClean } : {}),
+          };
+        })(),
         det: detList,
         total: {
           ICMSTot: {
