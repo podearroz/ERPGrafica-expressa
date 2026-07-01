@@ -346,6 +346,24 @@ export async function downloadDANFE(req, res) {
       }
     }
 
+    // ── Normaliza campos — garante mesma estrutura independente da origem ──
+    // Campos financeiros no nível raiz (preview envia dentro de totais)
+    if (nota.valor_frete     == null) nota.valor_frete     = parseFloat(nota.totais?.valor_frete    || 0);
+    if (nota.valor_seguro    == null) nota.valor_seguro    = parseFloat(nota.totais?.valor_seguro   || 0);
+    if (nota.desconto        == null) nota.desconto        = parseFloat(nota.totais?.desconto       || 0);
+    if (nota.outras_despesas == null) nota.outras_despesas = parseFloat(nota.totais?.valor_despesas || nota.totais?.outras_despesas || 0);
+
+    // Normaliza itens: origem padrão '0', CST no formato 4 dígitos (ex: "102" → "0102")
+    if (nota.itens?.length) {
+      nota.itens = nota.itens.map(it => ({
+        ...it,
+        origem: it.origem ?? '0',
+        cst: it.cst
+          ? (String(it.cst).length < 4 ? `0${it.cst}` : String(it.cst))
+          : '0102',
+      }));
+    }
+
     // ── Dados emitente (via env) ───────────────────────────────────────────
     const emit = {
       razao:      process.env.EMPRESA_RAZAO_SOCIAL || '',
