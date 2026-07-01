@@ -603,8 +603,8 @@ export async function downloadDANFE(req, res) {
     let razaoY = y + 14;
     if (hasLogo) {
       try {
-        doc.image(LOGO_PATH, ML + Math.floor(emiW / 2) - 22, y + 8, { width: 44, height: 16 });
-        razaoY = y + 28;
+        doc.image(LOGO_PATH, ML + 4, y + 4, { fit: [emiW - 8, 30], align: 'center', valign: 'top' });
+        razaoY = y + 36;
       } catch (_) {}
     }
     doc.save().fontSize(9.5).font('Helvetica-Bold').fillColor(PRETO)
