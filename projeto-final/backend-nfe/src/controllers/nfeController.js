@@ -3,12 +3,106 @@ import { createRequire } from 'module';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { existsSync } from 'fs';
+import { parseStringPromise } from 'xml2js';
 const require = createRequire(import.meta.url);
 const bwipjs = require('bwip-js');
 import { buildNFeXml } from '../services/nfeXmlBuilder.js';
 import { assinarXml, autorizarNFe, consultarNFeSefaz, checkStatusSefaz, cancelarNFeSefaz } from '../services/sefazService.js';
 import { getInfoCertificado } from '../services/certificadoService.js';
 import { proximoNumeroNFe, salvarNFe, buscarNFePorChave, consultarSequencia, atualizarStatusNFe } from '../services/supabaseNfeService.js';
+
+// ── Parser do nfeProc XML — extrai todos os dados para o DANFE ───────────────
+function _t(v) { return typeof v === 'object' && v !== null ? (v._ ?? '') : (v ?? ''); }
+
+function _extractCST(imposto) {
+  if (!imposto?.ICMS) return '';
+  const icms = imposto.ICMS;
+  for (const key of Object.keys(icms)) {
+    const g = icms[key];
+    if (g?.CSOSN) return `0${_t(g.CSOSN)}`;
+    if (g?.CST)   return _t(g.CST);
+  }
+  return '';
+}
+
+async function parsearNFeXml(xmlStr) {
+  const parsed = await parseStringPromise(xmlStr, { explicitArray: false, ignoreAttrs: true });
+  const proc  = parsed.nfeProc;
+  const nfe   = proc.NFe.infNFe;
+  const prot  = proc.protNFe?.infProt;
+  const ide   = nfe.ide;
+  const emit  = nfe.emit;
+  const dest  = nfe.dest;
+  const transp = nfe.transp;
+  const tot   = nfe.total?.ICMSTot;
+  const infAdic = nfe.infAdic;
+
+  const detRaw = nfe.det;
+  const dets = Array.isArray(detRaw) ? detRaw : (detRaw ? [detRaw] : []);
+
+  const pagDet = nfe.pag?.detPag;
+  const tPag = Array.isArray(pagDet) ? pagDet[0]?.tPag : pagDet?.tPag;
+
+  const dhEmi    = _t(ide.dhEmi);
+  const dhSaiEnt = _t(ide.dhSaiEnt) || dhEmi;
+  const horaSaida = dhSaiEnt.includes('T') ? dhSaiEnt.split('T')[1].substring(0, 8) : '';
+
+  return {
+    numero:            parseInt(_t(ide.nNF)),
+    serie:             _t(ide.serie),
+    chave_acesso:      _t(prot?.chNFe) || '',
+    protocolo:         _t(prot?.nProt) || '',
+    protocolo_data:    _t(prot?.dhRecbto) || '',
+    data:              dhEmi.split('T')[0],
+    data_saida:        dhSaiEnt.split('T')[0],
+    hora_saida:        horaSaida,
+    natureza_operacao: _t(ide.natOp),
+
+    destinatario_json: {
+      nome:               _t(dest?.xNome),
+      cpf_cnpj:           _t(dest?.CNPJ || dest?.CPF),
+      inscricao_estadual: _t(dest?.IE),
+      logradouro:         _t(dest?.enderDest?.xLgr),
+      numero:             _t(dest?.enderDest?.nro),
+      complemento:        _t(dest?.enderDest?.xCpl),
+      bairro:             _t(dest?.enderDest?.xBairro),
+      municipio:          _t(dest?.enderDest?.xMun),
+      uf:                 _t(dest?.enderDest?.UF),
+      cep:                _t(dest?.enderDest?.CEP),
+      telefone:           _t(dest?.enderDest?.fone),
+      email:              _t(dest?.email),
+    },
+
+    itens: dets.map(det => ({
+      codigo:         _t(det.prod.cProd),
+      descricao:      _t(det.prod.xProd),
+      ncm:            _t(det.prod.NCM),
+      cfop:           _t(det.prod.CFOP),
+      unidade:        _t(det.prod.uCom),
+      quantidade:     parseFloat(_t(det.prod.qCom) || 0),
+      valor_unitario: parseFloat(_t(det.prod.vUnCom) || 0),
+      valor_total:    parseFloat(_t(det.prod.vProd) || 0),
+      cst:            _extractCST(det.imposto),
+      origem:         '0',
+    })),
+
+    totais: {
+      bc_icms:       parseFloat(_t(tot?.vBC)    || 0),
+      valor_icms:    parseFloat(_t(tot?.vICMS)  || 0),
+      bc_icms_st:    parseFloat(_t(tot?.vBCST)  || 0),
+      valor_icms_st: parseFloat(_t(tot?.vST)    || 0),
+      valor_ipi:     parseFloat(_t(tot?.vIPI)   || 0),
+    },
+    valor_frete:     parseFloat(_t(tot?.vFrete) || 0),
+    valor_seguro:    parseFloat(_t(tot?.vSeg)   || 0),
+    desconto:        parseFloat(_t(tot?.vDesc)  || 0),
+    outras_despesas: parseFloat(_t(tot?.vOutro) || 0),
+
+    modalidade_frete: _t(transp?.modFrete) || '9',
+    forma_pagamento:  _t(tPag) || '01',
+    observacoes:      _t(infAdic?.infCpl) || '',
+  };
+}
 
 // Caminho do logo da empresa (em backend-nfe/assets/)
 const __dirname_ctrl = dirname(fileURLToPath(import.meta.url));
@@ -234,8 +328,23 @@ export async function downloadXML(req, res) {
 
 export async function downloadDANFE(req, res) {
   try {
-    const { nota } = req.body;
+    let { nota } = req.body;
     if (!nota) return res.status(400).json({ success: false, error: 'Dados da nota não enviados' });
+
+    // Se tiver chave de acesso, busca o XML oficial do banco e sobrescreve os dados
+    const chaveStr = (nota.chave_acesso || '').replace(/\D/g, '');
+    if (chaveStr.length === 44) {
+      try {
+        const registro = await buscarNFePorChave(chaveStr);
+        if (registro?.xml_conteudo) {
+          const xmlData = await parsearNFeXml(registro.xml_conteudo);
+          nota = { ...nota, ...xmlData };
+          console.log(`📄 DANFE gerado a partir do XML oficial (NF ${xmlData.numero})`);
+        }
+      } catch (xmlErr) {
+        console.warn('⚠️ Falha ao parsear XML, usando dados do frontend:', xmlErr.message);
+      }
+    }
 
     // ── Dados emitente (via env) ───────────────────────────────────────────
     const emit = {
