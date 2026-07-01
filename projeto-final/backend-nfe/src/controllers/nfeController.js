@@ -418,7 +418,7 @@ export async function downloadDANFE(req, res) {
     const cDtW  = Math.floor(PW * 0.25);
     const cNfW  = PW - cTxtW - cDtW;
 
-    doc.save().lineWidth(0.5).dash(3, { space: 2 })
+    doc.save().lineWidth(0.5)
        .rect(ML, y, PW, cH).stroke(PRETO).restore();
 
     doc.save().fontSize(5.5).font('Helvetica').fillColor(PRETO)
@@ -476,8 +476,8 @@ export async function downloadDANFE(req, res) {
     let razaoY = y + 14;
     if (hasLogo) {
       try {
-        doc.image(LOGO_PATH, ML + Math.floor(emiW / 2) - 30, y + 8, { width: 60, height: 20 });
-        razaoY = y + 32;
+        doc.image(LOGO_PATH, ML + Math.floor(emiW / 2) - 22, y + 8, { width: 44, height: 16 });
+        razaoY = y + 28;
       } catch (_) {}
     }
     doc.save().fontSize(9.5).font('Helvetica-Bold').fillColor(PRETO)
@@ -534,12 +534,12 @@ export async function downloadDANFE(req, res) {
        .text(chaveGroups, cX + 2, cvY, { width: chvW - 4, align: 'center', lineBreak: false }).restore();
     cvY += 18;
     doc.save().fontSize(5.5).font('Helvetica').fillColor(PRETO)
-       .text('Consulta de autenticidade no portal nacional da NF-e:',
+       .text('Consulta de autenticidade no portal nacional da NF-e',
              cX + 2, cvY, { width: chvW - 4, lineBreak: false }).restore();
     cvY += 8;
     doc.save().fontSize(5.5).font('Helvetica').fillColor(PRETO)
-       .text('www.nfe.fazenda.gov.br/portal',
-             cX + 2, cvY, { width: chvW - 4, lineBreak: false }).restore();
+       .text('www.nfe.fazenda.gov.br/portal ou no site da Sefaz Autorizadora',
+             cX + 2, cvY, { width: chvW - 4, lineBreak: true }).restore();
 
     y += hH;
 
