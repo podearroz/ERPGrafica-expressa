@@ -22,6 +22,28 @@ export async function proximoNumeroNFe(serie = '1') {
   return data; // INTEGER
 }
 
+// ── Rollback do número após rejeição (devolve o número ao contador) ────────
+
+export async function rollbackNumeroNFe(serie = '1') {
+  try {
+    const { data } = await db()
+      .from('nfe_controle')
+      .select('proximo_numero')
+      .eq('serie', serie)
+      .eq('ambiente', amb())
+      .single();
+    if (!data) return;
+    await db()
+      .from('nfe_controle')
+      .update({ proximo_numero: data.proximo_numero - 1, ultima_atualizacao: new Date().toISOString() })
+      .eq('serie', serie)
+      .eq('ambiente', amb());
+    console.log(`🔄 Contador NF-e revertido para ${data.proximo_numero - 1} (número devolvido após rejeição)`);
+  } catch (err) {
+    console.warn('⚠️ Não foi possível reverter o contador NF-e:', err.message);
+  }
+}
+
 // ── Salva NF-e autorizada no banco ───────────────────────────────────────
 
 export async function salvarNFe({

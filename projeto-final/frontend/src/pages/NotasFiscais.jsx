@@ -119,6 +119,7 @@ const ModalEmitirNFe = ({ nota, onClose, onSucesso }) => {
   const [carregando, setCarregando] = useState(true);
   const [gerandoPreview, setGerandoPreview] = useState(false);
   const [clientes, setClientes] = useState([]);
+  const [erroEmissao, setErroEmissao] = useState(null); // { cStat, xMotivo, numeroDevolvido }
 
   const hoje = new Date().toISOString().split('T')[0];
 
@@ -316,6 +317,7 @@ const ModalEmitirNFe = ({ nota, onClose, onSucesso }) => {
   const handleEmitir = async () => {
     if (!validar()) return;
     setEmitindo(true);
+    setErroEmissao(null);
     try {
       const payload = {
         venda: {
@@ -397,6 +399,15 @@ const ModalEmitirNFe = ({ nota, onClose, onSucesso }) => {
       });
       if (!res.ok) {
         const errData = await res.json().catch(() => ({}));
+        // Se o backend devolveu o número, atualiza o campo no modal
+        if (errData.numeroDevolvido && errData.numero) {
+          setIdent(p => ({ ...p, numero: String(errData.numero).padStart(9, '0') }));
+        }
+        setErroEmissao({
+          cStat:           errData.cStat || res.status,
+          xMotivo:         errData.xMotivo || errData.error || `Erro ${res.status}`,
+          numeroDevolvido: errData.numeroDevolvido ?? false,
+        });
         throw new Error(errData.error || errData.xMotivo || `Erro na API: ${res.status}`);
       }
       const resultado = await res.json();
@@ -425,16 +436,10 @@ const ModalEmitirNFe = ({ nota, onClose, onSucesso }) => {
       toast.success(`NF-e nº ${numeroEmitido} emitida com sucesso!`);
       onClose();
     } catch (e) {
-      toast.error(`Erro ao emitir: ${e.message}`);
-      // Recarrega o próximo número do banco (pode ter sido consumido pela tentativa)
-      try {
-        const { data: ctrl } = await supabase
-          .from('nfe_controle').select('proximo_numero')
-          .eq('ambiente', 'producao').eq('serie', '1').single();
-        if (ctrl?.proximo_numero) {
-          setIdent(p => ({ ...p, numero: String(ctrl.proximo_numero).padStart(9, '0') }));
-        }
-      } catch (_) {}
+      // Erro de rede/inesperado (erros SEFAZ já tratados acima via setErroEmissao)
+      if (!erroEmissao) {
+        setErroEmissao({ cStat: null, xMotivo: e.message, numeroDevolvido: false });
+      }
     } finally { setEmitindo(false); }
   };
 
@@ -834,6 +839,32 @@ const ModalEmitirNFe = ({ nota, onClose, onSucesso }) => {
             </>
           )}
         </div>
+
+        {/* Painel de erro SEFAZ */}
+        {erroEmissao && (
+          <div className="mx-6 mb-2 rounded-lg border border-red-300 bg-red-50 p-3">
+            <div className="flex items-start gap-2">
+              <span className="text-red-600 font-bold text-sm mt-0.5">✕</span>
+              <div className="flex-1 min-w-0">
+                <p className="text-red-700 font-semibold text-sm">
+                  {erroEmissao.cStat ? `Rejeição SEFAZ — cStat ${erroEmissao.cStat}` : 'Erro ao emitir'}
+                </p>
+                <p className="text-red-600 text-sm mt-0.5 break-words">{erroEmissao.xMotivo}</p>
+                {erroEmissao.numeroDevolvido && (
+                  <p className="text-green-700 text-xs mt-1">
+                    ✓ Número {ident.numero} devolvido automaticamente — pode corrigir e tentar novamente.
+                  </p>
+                )}
+                {!erroEmissao.numeroDevolvido && erroEmissao.cStat && (
+                  <p className="text-orange-600 text-xs mt-1">
+                    ⚠ Número pode ter sido registrado na SEFAZ — verifique antes de retentar.
+                  </p>
+                )}
+              </div>
+              <button onClick={() => setErroEmissao(null)} className="text-red-400 hover:text-red-600 text-xs ml-1">✕</button>
+            </div>
+          </div>
+        )}
 
         {/* Footer */}
         <div className="px-6 py-4 border-t flex justify-between flex-shrink-0">

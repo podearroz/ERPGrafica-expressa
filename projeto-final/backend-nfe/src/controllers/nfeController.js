@@ -9,7 +9,7 @@ const bwipjs = require('bwip-js');
 import { buildNFeXml } from '../services/nfeXmlBuilder.js';
 import { assinarXml, autorizarNFe, consultarNFeSefaz, checkStatusSefaz, cancelarNFeSefaz } from '../services/sefazService.js';
 import { getInfoCertificado } from '../services/certificadoService.js';
-import { proximoNumeroNFe, salvarNFe, buscarNFePorChave, consultarSequencia, atualizarStatusNFe } from '../services/supabaseNfeService.js';
+import { proximoNumeroNFe, rollbackNumeroNFe, salvarNFe, buscarNFePorChave, consultarSequencia, atualizarStatusNFe } from '../services/supabaseNfeService.js';
 
 // ── Parser do nfeProc XML — extrai todos os dados para o DANFE ───────────────
 function _t(v) { return typeof v === 'object' && v !== null ? (v._ ?? '') : (v ?? ''); }
@@ -184,12 +184,18 @@ export async function emitirNFe(req, res) {
     console.log(`↩️  SEFAZ retornou cStat=${resultado.cStat}: ${resultado.xMotivo}`);
 
     if (!resultado.autorizado) {
+      // cStat 204 = NF-e duplicada: SEFAZ já registrou o número, não reverter
+      const numeroDuplicado = resultado.cStat === 204;
+      if (!numeroDuplicado) {
+        await rollbackNumeroNFe(String(serie));
+      }
       return res.status(422).json({
-        success: false,
-        cStat:    resultado.cStat,
-        xMotivo:  resultado.xMotivo,
-        numero,   // número foi consumido mesmo com rejeição
-        error:    `SEFAZ rejeitou a NF-e (${resultado.cStat}): ${resultado.xMotivo}`,
+        success:          false,
+        cStat:            resultado.cStat,
+        xMotivo:          resultado.xMotivo,
+        numero,
+        numeroDevolvido:  !numeroDuplicado,
+        error:            `SEFAZ rejeitou a NF-e (${resultado.cStat}): ${resultado.xMotivo}`,
       });
     }
 
