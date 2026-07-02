@@ -421,10 +421,20 @@ const ModalEmitirNFe = ({ nota, onClose, onSucesso }) => {
         forma_pagamento: totais.forma_pagamento,
         protocolo_data: resultado.data?.dataAutorizacao || null,
       });
-      toast.success(`NF-e nº ${ident.numero} emitida com sucesso!`);
+      const numeroEmitido = resultado.data?.numero || ident.numero;
+      toast.success(`NF-e nº ${numeroEmitido} emitida com sucesso!`);
       onClose();
     } catch (e) {
       toast.error(`Erro ao emitir: ${e.message}`);
+      // Recarrega o próximo número do banco (pode ter sido consumido pela tentativa)
+      try {
+        const { data: ctrl } = await supabase
+          .from('nfe_controle').select('proximo_numero')
+          .eq('ambiente', 'producao').eq('serie', '1').single();
+        if (ctrl?.proximo_numero) {
+          setIdent(p => ({ ...p, numero: String(ctrl.proximo_numero).padStart(9, '0') }));
+        }
+      } catch (_) {}
     } finally { setEmitindo(false); }
   };
 
