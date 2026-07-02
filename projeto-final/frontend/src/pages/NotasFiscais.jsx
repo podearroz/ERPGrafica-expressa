@@ -1138,7 +1138,6 @@ const NotasFiscais = () => {
             } else {
               saved = await addNotaFiscal(updates);
             }
-            await incrementarNumero();
             setNotaDetalhes(saved || notasFiscais.find(n => n.id === id));
             setShowDetalhesModal(true);
           }} />
