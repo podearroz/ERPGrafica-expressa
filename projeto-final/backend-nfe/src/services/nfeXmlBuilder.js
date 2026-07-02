@@ -168,16 +168,17 @@ export function buildNFeXml({ numero, serie = 1, naturezaOperacao = 'Venda de pr
           const indIEDest = destinatario.ind_ie
             ? String(destinatario.ind_ie)
             : (ieClean && !ieIsento ? '1' : ieIsento ? '2' : '9');
+          const san = v => String(v || '').replace(/[^\x20-\x7E\xA0-\xFF]/g, ' ').trim();
           return {
             ...destNode,
             xNome: xNomeDest,
             enderDest: {
-              xLgr:    destinatario.logradouro || 'Rua Nao Informada',
-              nro:     destinatario.numero || 'SN',
-              xBairro: destinatario.bairro || 'Nao Informado',
+              xLgr:    san(destinatario.logradouro) || 'Rua Nao Informada',
+              nro:     san(destinatario.numero) || 'SN',
+              xBairro: san(destinatario.bairro) || 'Nao Informado',
               cMun:    destinatario.codigo_municipio || '1101708',
-              xMun:    destinatario.municipio || 'VILHENA',
-              UF:      destinatario.uf || 'RO',
+              xMun:    san(destinatario.municipio) || 'VILHENA',
+              UF:      (destinatario.uf || 'RO').toUpperCase(),
               CEP:     (destinatario.cep || '76982249').replace(/\D/g, ''),
               cPais:   '1058',
               xPais:   'Brasil',
