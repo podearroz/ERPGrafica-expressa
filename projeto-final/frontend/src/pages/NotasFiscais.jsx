@@ -114,6 +114,7 @@ const SectionTitle = ({ children }) => (
 
 // ─── Modal de Emissão ─────────────────────────────────────────────────────────
 const ModalEmitirNFe = ({ nota, onClose, onSucesso }) => {
+  const DRAFT_KEY = `nfe_draft_${nota.id}`;
   const [aba, setAba] = useState(0);
   const [emitindo, setEmitindo] = useState(false);
   const [carregando, setCarregando] = useState(true);
@@ -249,6 +250,32 @@ const ModalEmitirNFe = ({ nota, onClose, onSucesso }) => {
     };
     carregar();
   }, [nota.id, nota.venda_id]);
+
+  // Restaura rascunho do localStorage após o carregamento inicial
+  useEffect(() => {
+    if (carregando) return;
+    try {
+      const saved = localStorage.getItem(DRAFT_KEY);
+      if (!saved) return;
+      const draft = JSON.parse(saved);
+      if (draft.ident)              setIdent(draft.ident);
+      if (draft.dest)               setDest(draft.dest);
+      if (draft.itens)              setItens(draft.itens);
+      if (draft.totais)             setTotais(draft.totais);
+      if (draft.transp)             setTransp(draft.transp);
+      if (draft.detalhes)           setDetalhes(draft.detalhes);
+      if (draft.aba !== undefined)  setAba(draft.aba);
+      toast('Rascunho restaurado.', { icon: '📋' });
+    } catch (_) {}
+  }, [carregando]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Salva rascunho sempre que o usuário editar algo
+  useEffect(() => {
+    if (carregando) return;
+    try {
+      localStorage.setItem(DRAFT_KEY, JSON.stringify({ ident, dest, itens, totais, transp, detalhes, aba }));
+    } catch (_) {}
+  }, [ident, dest, itens, totais, transp, detalhes, aba]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const preencherDestDeCliente = (c) => setDest(p => ({
     ...p,
@@ -434,6 +461,7 @@ const ModalEmitirNFe = ({ nota, onClose, onSucesso }) => {
         protocolo_data: resultado.data?.dataAutorizacao || null,
       });
       const numeroEmitido = resultado.data?.numero || ident.numero;
+      localStorage.removeItem(DRAFT_KEY);
       toast.success(`NF-e nº ${numeroEmitido} emitida com sucesso!`);
       onClose();
     } catch (e) {
