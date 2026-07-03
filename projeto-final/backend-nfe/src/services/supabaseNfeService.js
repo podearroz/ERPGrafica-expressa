@@ -47,37 +47,51 @@ export async function rollbackNumeroNFe(serie = '1') {
 // ── Salva NF-e autorizada no banco ───────────────────────────────────────
 
 export async function salvarNFe({
-  numeroNfe, serie, chaveAcesso, protocolo,
+  notaId, numeroNfe, serie, chaveAcesso, protocolo,
   dataAutorizacao, valor, clienteNome, clienteDoc,
   destinatario, itens, formaPagamento, xmlConteudo,
 }) {
+  const campos = {
+    numero:             String(numeroNfe),
+    numero_nfe:         numeroNfe,
+    serie:              String(serie),
+    chave_acesso:       chaveAcesso,
+    protocolo,
+    data:               dataAutorizacao
+      ? new Date(dataAutorizacao).toISOString().split('T')[0]
+      : new Date().toISOString().split('T')[0],
+    protocolo_data:     dataAutorizacao ?? null,
+    valor,
+    cliente:            clienteNome,
+    destinatario_doc:   clienteDoc,
+    destinatario_nome:  clienteNome,
+    destinatario_json:  destinatario ?? null,
+    tipo:               'NF-e',
+    status:             'Emitida',
+    ambiente:           amb(),
+    itens:              itens ?? null,
+    forma_pagamento:    formaPagamento ?? '01',
+    xml_conteudo:       xmlConteudo,
+  };
+
+  if (notaId) {
+    // Atualiza o registro existente (evita duplicatas)
+    const { data, error } = await db()
+      .from('notas_fiscais')
+      .update(campos)
+      .eq('id', notaId)
+      .select()
+      .single();
+    if (error) throw new Error(`Erro ao atualizar NF-e: ${error.message}`);
+    return data;
+  }
+
+  // Fallback: insere novo registro se não houver ID
   const { data, error } = await db()
     .from('notas_fiscais')
-    .insert({
-      numero:             String(numeroNfe),
-      numero_nfe:         numeroNfe,
-      serie:              String(serie),
-      chave_acesso:       chaveAcesso,
-      protocolo,
-      data:               dataAutorizacao
-        ? new Date(dataAutorizacao).toISOString().split('T')[0]
-        : new Date().toISOString().split('T')[0],
-      protocolo_data:     dataAutorizacao ?? null,
-      valor,
-      cliente:            clienteNome,
-      destinatario_doc:   clienteDoc,
-      destinatario_nome:  clienteNome,
-      destinatario_json:  destinatario ?? null,
-      tipo:               'NF-e',
-      status:             'Autorizada',
-      ambiente:           amb(),
-      itens:              itens ?? null,
-      forma_pagamento:    formaPagamento ?? '01',
-      xml_conteudo:       xmlConteudo,
-    })
+    .insert(campos)
     .select()
     .single();
-
   if (error) throw new Error(`Erro ao salvar NF-e: ${error.message}`);
   return data;
 }

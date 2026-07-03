@@ -144,6 +144,7 @@ export async function emitirNFe(req, res) {
     const body = req.body;
 
     // Suporta payload estruturado { venda, cliente } e o formato legado { destinatario, itens }
+    const nota_id          = body.nota_id                 ?? null;
     const serie            = body.venda?.serie            ?? body.serie            ?? 1;
     const destinatario     = body.cliente                 ?? body.destinatario;
     const itens            = body.venda?.itens            ?? body.itens;
@@ -204,6 +205,7 @@ export async function emitirNFe(req, res) {
     const xmlParaSalvar = resultado.nfeProcXml || xmlAssinado;
     const valor = itens.reduce((s, i) => s + parseFloat(i.valor_total || 0), 0);
     const notaSalva = await salvarNFe({
+      notaId:          nota_id,
       numeroNfe:       numero,
       serie,
       chaveAcesso:     resultado.chave || chave,

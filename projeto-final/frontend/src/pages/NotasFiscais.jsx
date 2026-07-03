@@ -320,6 +320,7 @@ const ModalEmitirNFe = ({ nota, onClose, onSucesso }) => {
     setErroEmissao(null);
     try {
       const payload = {
+        nota_id: nota?.id || null,
         venda: {
           numero: ident.numero, serie: ident.serie, data: ident.data,
           data_saida: ident.data_saida, hora_saida: ident.hora_saida,
