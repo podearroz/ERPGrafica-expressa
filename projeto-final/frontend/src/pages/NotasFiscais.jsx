@@ -440,7 +440,9 @@ const ModalEmitirNFe = ({ nota, onClose, onSucesso }) => {
       }
       const resultado = await res.json();
 
-      await onSucesso(nota.id, {
+      // Usa o ID real salvo pelo backend quando nota ainda não tinha ID (nova emissão direta)
+      const idFinal = nota.id || resultado.data?.id || null;
+      await onSucesso(idFinal, {
         status: 'Emitida',
         numero: String(resultado.data?.numero || ident.numero),
         serie: ident.serie,
@@ -1203,12 +1205,14 @@ const NotasFiscais = () => {
           onClose={() => { setShowEmitirModal(false); setNotaParaEmitir(null); }}
           onSucesso={async (id, updates) => {
             let saved;
-            if (id) {
+            if (id && notasFiscais.some(n => n.id === id)) {
               saved = await updateNotaFiscal(id, updates);
             } else {
-              saved = await addNotaFiscal(updates);
+              // Registro criado pelo backend mas ainda não está no estado local — sincroniza com o banco
+              await fetchNotasFiscais();
+              saved = useNotaFiscalStore.getState().notasFiscais.find(n => n.id === id || n.numero === updates.numero);
             }
-            setNotaDetalhes(saved || notasFiscais.find(n => n.id === id));
+            setNotaDetalhes(saved || null);
             setShowDetalhesModal(true);
           }} />
       )}
