@@ -11,6 +11,7 @@ import { supabase } from '@/config/supabaseClient';
 import toast from 'react-hot-toast';
 
 const NFE_API_URL = import.meta.env.VITE_NFE_API_URL || 'http://localhost:3001';
+const PAGE_SIZE = 10;
 
 // ─── Opções estáticas ────────────────────────────────────────────────────────
 const FINALIDADES = [
@@ -1150,7 +1151,7 @@ const NotasFiscais = () => {
       );
     });
 
-  const pagedNotas = notasExibidas.slice((currentPage - 1) * 50, currentPage * 50);
+  const pagedNotas = notasExibidas.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
   const handleSearchNF = (v) => { setSearchTerm(v); setCurrentPage(1); };
   const handleFiltroNF = (v) => { setFiltroStatus(v); setCurrentPage(1); };
 
@@ -1347,7 +1348,7 @@ const NotasFiscais = () => {
         <Pagination
           currentPage={currentPage}
           totalItems={notasExibidas.length}
-          pageSize={50}
+          pageSize={PAGE_SIZE}
           onPageChange={setCurrentPage}
         />
       </Card>

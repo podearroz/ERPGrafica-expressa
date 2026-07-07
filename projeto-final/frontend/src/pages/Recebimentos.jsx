@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Edit, Trash2, Save, CheckCircle, CreditCard, XCircle, RotateCcw, Search } from 'lucide-react';
 import useRecebimentoStore from '@store/recebimentoStore';
+import useClienteStore from '@store/clienteStore';
 import Card from '@components/common/Card';
 import Button from '@components/common/Button';
 import Table from '@components/common/Table';
@@ -9,7 +10,7 @@ import Input from '@components/common/Input';
 import Pagination from '@components/common/Pagination';
 import toast from 'react-hot-toast';
 
-const PAGE_SIZE = 50;
+const PAGE_SIZE = 10;
 
 // ─── Config ──────────────────────────────────────────────────────────────────
 const FORMAS = ['Dinheiro', 'PIX', 'Cartão de Crédito', 'Cartão de Débito', 'Boleto', 'Cheque', 'Transferência'];
@@ -39,8 +40,13 @@ const Recebimentos = () => {
     getTotalRecebido, getTotalPendente,
   } = useRecebimentoStore();
 
+  const { clientes } = useClienteStore();
+
   const [filtroStatus, setFiltroStatus] = useState('TODOS');
   const [searchTerm, setSearchTerm] = useState('');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
+  const [cpfFilter, setCpfFilter] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [showFormModal, setShowFormModal] = useState(false);
   const [showRecebidoModal, setShowRecebidoModal] = useState(false);
@@ -66,19 +72,32 @@ const Recebimentos = () => {
 
   useEffect(() => { fetchRecebimentos(); }, []);
 
-  const handleSearch = (v) => { setSearchTerm(v); setCurrentPage(1); };
-  const handleFiltro = (v) => { setFiltroStatus(v); setCurrentPage(1); };
+  const resetPage = () => setCurrentPage(1);
+  const handleSearch = (v) => { setSearchTerm(v); resetPage(); };
+  const handleFiltro = (v) => { setFiltroStatus(v); resetPage(); };
+
+  // CPF lookup: pega nomes dos clientes que têm esse CPF/CNPJ
+  const cpfNorm = cpfFilter.replace(/\D/g, '');
+  const nomesPorCpf = cpfNorm
+    ? clientes.filter(c => (c.cpf_cnpj || '').replace(/\D/g, '').includes(cpfNorm)).map(c => c.nome.toLowerCase())
+    : null;
 
   // Filtro + ordenação
   const lista = (filtroStatus === 'TODOS' ? recebimentos : recebimentos.filter(r => r.status === filtroStatus))
     .filter(r => r.tipo === 'entrada' || !r.tipo)
     .filter(r => {
-      if (!searchTerm) return true;
-      const q = searchTerm.toLowerCase();
-      return (
-        (r.cliente_nome || r.venda?.cliente?.nome || '').toLowerCase().includes(q) ||
-        (r.descricao || '').toLowerCase().includes(q)
-      );
+      if (searchTerm) {
+        const q = searchTerm.toLowerCase();
+        if (!(r.cliente_nome || r.venda?.cliente?.nome || '').toLowerCase().includes(q) &&
+            !(r.descricao || '').toLowerCase().includes(q)) return false;
+      }
+      if (dateFrom && r.data < dateFrom) return false;
+      if (dateTo && r.data > dateTo) return false;
+      if (nomesPorCpf) {
+        const nome = (r.cliente_nome || r.venda?.cliente?.nome || '').toLowerCase();
+        if (!nomesPorCpf.some(n => nome.includes(n) || n.includes(nome))) return false;
+      }
+      return true;
     });
 
   const pagedLista = lista.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
@@ -242,18 +261,38 @@ const Recebimentos = () => {
                 ))}
               </div>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <div className="relative">
                 <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                 <input
                   type="text"
-                  placeholder="Buscar cliente ou descrição..."
+                  placeholder="Cliente ou descrição..."
                   value={searchTerm}
                   onChange={(e) => handleSearch(e.target.value)}
-                  className="pl-9 pr-4 py-1.5 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 w-52"
+                  className="pl-9 pr-3 py-1.5 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 w-44"
                 />
               </div>
-              <Button icon={Plus} onClick={() => abrirFormModal()}>Novo Recebimento</Button>
+              <input type="date" value={dateFrom}
+                onChange={(e) => { setDateFrom(e.target.value); resetPage(); }}
+                title="Vencimento — início"
+                className="py-1.5 px-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              <span className="text-slate-400 text-sm">até</span>
+              <input type="date" value={dateTo}
+                onChange={(e) => { setDateTo(e.target.value); resetPage(); }}
+                title="Vencimento — fim"
+                className="py-1.5 px-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              <input
+                type="text"
+                placeholder="CPF/CNPJ do cliente"
+                value={cpfFilter}
+                onChange={(e) => { setCpfFilter(e.target.value); resetPage(); }}
+                className="py-1.5 px-3 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 w-40"
+              />
+              {(searchTerm || dateFrom || dateTo || cpfFilter) && (
+                <button onClick={() => { setSearchTerm(''); setDateFrom(''); setDateTo(''); setCpfFilter(''); resetPage(); }}
+                  className="text-xs text-slate-500 hover:text-red-500 underline">Limpar</button>
+              )}
+              <Button icon={Plus} onClick={() => abrirFormModal()}>Novo</Button>
             </div>
           </div>
         </div>

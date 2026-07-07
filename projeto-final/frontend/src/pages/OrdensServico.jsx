@@ -9,7 +9,7 @@ import Modal from '@components/common/Modal';
 import Pagination from '@components/common/Pagination';
 import toast from 'react-hot-toast';
 
-const PAGE_SIZE = 50;
+const PAGE_SIZE = 10;
 
 const STATUS_CONFIG = {
   ABERTA: { label: 'Aberta', className: 'bg-blue-100 text-blue-700' },
@@ -187,6 +187,9 @@ const OrdensServico = () => {
 
   const [filtroStatus, setFiltroStatus] = useState('TODOS');
   const [searchTerm, setSearchTerm] = useState('');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
+  const [cpfFilter, setCpfFilter] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [osSelecionada, setOsSelecionada] = useState(null);
   const [showDetalhesModal, setShowDetalhesModal] = useState(false);
@@ -197,17 +200,25 @@ const OrdensServico = () => {
 
   useEffect(() => { fetchOrdensServico(); }, []);
 
-  const handleSearch = (v) => { setSearchTerm(v); setCurrentPage(1); };
-  const handleFiltro = (v) => { setFiltroStatus(v); setCurrentPage(1); };
+  const resetPage = () => setCurrentPage(1);
+  const handleSearch = (v) => { setSearchTerm(v); resetPage(); };
+  const handleFiltro = (v) => { setFiltroStatus(v); resetPage(); };
+
+  const cpfNorm = cpfFilter.replace(/\D/g, '');
 
   const ordens = (filtroStatus === 'TODOS' ? ordensServico : ordensServico.filter((os) => os.status === filtroStatus))
     .filter((os) => {
-      if (!searchTerm) return true;
-      const q = searchTerm.toLowerCase();
-      return (
-        String(os.numero_os).includes(searchTerm) ||
-        (os.cliente?.nome || os.cliente_nome || '').toLowerCase().includes(q)
-      );
+      if (searchTerm) {
+        const q = searchTerm.toLowerCase();
+        if (!String(os.numero_os).includes(searchTerm) && !(os.cliente?.nome || os.cliente_nome || '').toLowerCase().includes(q)) return false;
+      }
+      if (dateFrom && os.data_abertura < dateFrom) return false;
+      if (dateTo && os.data_abertura > dateTo) return false;
+      if (cpfNorm) {
+        const osCpf = (os.cliente?.cpf_cnpj || '').replace(/\D/g, '');
+        if (!osCpf.includes(cpfNorm)) return false;
+      }
+      return true;
     });
 
   const pagedOrdens = ordens.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
@@ -320,18 +331,48 @@ const OrdensServico = () => {
               </div>
             </div>
 
-            {/* Busca */}
-            <div className="flex items-center gap-3">
+            {/* Filtros */}
+            <div className="flex items-center gap-2 flex-wrap">
               <div className="relative">
                 <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                 <input
                   type="text"
-                  placeholder="Buscar por nº OS ou cliente..."
+                  placeholder="Nº OS ou cliente..."
                   value={searchTerm}
                   onChange={(e) => handleSearch(e.target.value)}
-                  className="pl-9 pr-4 py-1.5 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 w-56"
+                  className="pl-9 pr-3 py-1.5 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 w-44"
                 />
               </div>
+              <input
+                type="date"
+                value={dateFrom}
+                onChange={(e) => { setDateFrom(e.target.value); resetPage(); }}
+                title="Data de abertura — início"
+                className="py-1.5 px-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              <span className="text-slate-400 text-sm">até</span>
+              <input
+                type="date"
+                value={dateTo}
+                onChange={(e) => { setDateTo(e.target.value); resetPage(); }}
+                title="Data de abertura — fim"
+                className="py-1.5 px-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              <input
+                type="text"
+                placeholder="CPF/CNPJ do cliente"
+                value={cpfFilter}
+                onChange={(e) => { setCpfFilter(e.target.value); resetPage(); }}
+                className="py-1.5 px-3 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 w-40"
+              />
+              {(searchTerm || dateFrom || dateTo || cpfFilter) && (
+                <button
+                  onClick={() => { setSearchTerm(''); setDateFrom(''); setDateTo(''); setCpfFilter(''); resetPage(); }}
+                  className="text-xs text-slate-500 hover:text-red-500 underline"
+                >
+                  Limpar filtros
+                </button>
+              )}
             </div>
             {/* Resumo rápido */}
             <div className="flex items-center gap-3">

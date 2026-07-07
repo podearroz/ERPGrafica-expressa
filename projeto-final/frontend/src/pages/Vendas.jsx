@@ -4,7 +4,7 @@ import useVendaStore from '@store/vendaStore';
 import useClienteStore from '@store/clienteStore';
 import Card from '@components/common/Card';
 import Pagination from '@components/common/Pagination';
-const PAGE_SIZE = 50;
+const PAGE_SIZE = 10;
 import Button from '@components/common/Button';
 import Table from '@components/common/Table';
 import Modal from '@components/common/Modal';

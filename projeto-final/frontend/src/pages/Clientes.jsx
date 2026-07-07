@@ -9,7 +9,7 @@ import Input from '@components/common/Input';
 import Pagination from '@components/common/Pagination';
 import toast from 'react-hot-toast';
 
-const PAGE_SIZE = 50;
+const PAGE_SIZE = 10;
 
 const emptyForm = {
   nome: '',

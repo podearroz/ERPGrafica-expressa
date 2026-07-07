@@ -9,7 +9,7 @@ import Input from '@components/common/Input';
 import Pagination from '@components/common/Pagination';
 import toast from 'react-hot-toast';
 
-const PAGE_SIZE = 50;
+const PAGE_SIZE = 10;
 
 const Pagamentos = () => {
   const { pagamentos, addPagamento, updatePagamento, deletePagamento, fetchPagamentos, loading } = usePagamentoStore();
@@ -18,6 +18,9 @@ const Pagamentos = () => {
     fetchPagamentos();
   }, []);
   const [searchTerm, setSearchTerm] = useState('');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
+  const [cpfFilter, setCpfFilter] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [showModal, setShowModal] = useState(false);
   const [editingPagamento, setEditingPagamento] = useState(null);
@@ -103,35 +106,75 @@ const Pagamentos = () => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
+  const resetPage = () => setCurrentPage(1);
+  const handleSearch = (v) => { setSearchTerm(v); resetPage(); };
+
   const filteredPagamentos = pagamentos.filter(p => {
-    if (!searchTerm) return true;
-    const q = searchTerm.toLowerCase();
-    return (p.descricao || '').toLowerCase().includes(q) || (p.categoria || '').toLowerCase().includes(q);
+    if (searchTerm) {
+      const q = searchTerm.toLowerCase();
+      if (!(p.descricao || '').toLowerCase().includes(q) && !(p.categoria || '').toLowerCase().includes(q)) return false;
+    }
+    if (dateFrom && p.data < dateFrom) return false;
+    if (dateTo && p.data > dateTo) return false;
+    if (cpfFilter) {
+      const q = cpfFilter.replace(/\D/g, '');
+      if (!(p.descricao || '').replace(/\D/g, '').includes(q) && !(p.descricao || '').toLowerCase().includes(cpfFilter.toLowerCase())) return false;
+    }
+    return true;
   });
   const pagedPagamentos = filteredPagamentos.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
-  const handleSearch = (v) => { setSearchTerm(v); setCurrentPage(1); };
 
   return (
     <div>
       <Card>
         <div className="p-6 border-b border-slate-200">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between mb-4">
             <h2 className="text-xl font-bold text-slate-800">Pagamentos</h2>
-            <div className="flex items-center gap-2">
-              <div className="relative">
-                <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                <input
-                  type="text"
-                  placeholder="Buscar descrição ou categoria..."
-                  value={searchTerm}
-                  onChange={(e) => handleSearch(e.target.value)}
-                  className="pl-9 pr-4 py-1.5 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 w-52"
-                />
-              </div>
-              <Button icon={Plus} variant="danger" onClick={() => openModal()}>
-                Novo Pagamento
-              </Button>
+            <Button icon={Plus} variant="danger" onClick={() => openModal()}>
+              Novo Pagamento
+            </Button>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="relative">
+              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input
+                type="text"
+                placeholder="Buscar descrição ou categoria..."
+                value={searchTerm}
+                onChange={(e) => handleSearch(e.target.value)}
+                className="pl-9 pr-4 py-1.5 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 w-52"
+              />
             </div>
+            <input
+              type="date"
+              value={dateFrom}
+              onChange={(e) => { setDateFrom(e.target.value); resetPage(); }}
+              className="py-1.5 px-3 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              title="Data inicial"
+            />
+            <span className="text-slate-400 text-sm">até</span>
+            <input
+              type="date"
+              value={dateTo}
+              onChange={(e) => { setDateTo(e.target.value); resetPage(); }}
+              className="py-1.5 px-3 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              title="Data final"
+            />
+            <input
+              type="text"
+              placeholder="CPF/CNPJ na descrição"
+              value={cpfFilter}
+              onChange={(e) => { setCpfFilter(e.target.value); resetPage(); }}
+              className="py-1.5 px-3 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 w-44"
+            />
+            {(searchTerm || dateFrom || dateTo || cpfFilter) && (
+              <button
+                onClick={() => { setSearchTerm(''); setDateFrom(''); setDateTo(''); setCpfFilter(''); resetPage(); }}
+                className="text-sm text-slate-500 hover:text-slate-700 underline"
+              >
+                Limpar filtros
+              </button>
+            )}
           </div>
         </div>
 
