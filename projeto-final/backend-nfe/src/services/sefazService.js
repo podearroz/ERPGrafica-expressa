@@ -266,7 +266,9 @@ export async function consultarNFeSefaz(chave) {
 // ── Cancelamento de NF-e (evento 110111) ─────────────────────────────────
 
 function buildEventoCancelamento(chave, protocolo, justificativa, tpAmb, cnpj) {
-  const dhEvento = new Date().toISOString().replace(/\.\d{3}Z$/, '-03:00');
+  const now = new Date();
+  const brt = new Date(now.getTime() - 3 * 60 * 60 * 1000); // UTC-3 (Brasília)
+  const dhEvento = brt.toISOString().replace(/\.\d{3}Z$/, '-03:00');
   const idEvento = `ID110111${chave}01`;
   return compact(`<?xml version="1.0" encoding="UTF-8"?><envEvento versao="1.00" xmlns="http://www.portalfiscal.inf.br/nfe"><idLote>${Date.now()}</idLote><evento versao="1.00"><infEvento Id="${idEvento}"><cOrgao>${CUF}</cOrgao><tpAmb>${tpAmb}</tpAmb><CNPJ>${cnpj}</CNPJ><chNFe>${chave}</chNFe><dhEvento>${dhEvento}</dhEvento><tpEvento>110111</tpEvento><nSeqEvento>1</nSeqEvento><verEvento>1.00</verEvento><detEvento versao="1.00"><descEvento>Cancelamento</descEvento><nProt>${protocolo}</nProt><xJust>${justificativa}</xJust></detEvento></infEvento></evento></envEvento>`);
 }
