@@ -1,12 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Edit, Trash2, Save } from 'lucide-react';
+import { Plus, Edit, Trash2, Save, Search } from 'lucide-react';
 import usePagamentoStore from '@store/pagamentoStore';
 import Card from '@components/common/Card';
 import Button from '@components/common/Button';
 import Table from '@components/common/Table';
 import Modal from '@components/common/Modal';
 import Input from '@components/common/Input';
+import Pagination from '@components/common/Pagination';
 import toast from 'react-hot-toast';
+
+const PAGE_SIZE = 50;
 
 const Pagamentos = () => {
   const { pagamentos, addPagamento, updatePagamento, deletePagamento, fetchPagamentos, loading } = usePagamentoStore();
@@ -14,6 +17,8 @@ const Pagamentos = () => {
   useEffect(() => {
     fetchPagamentos();
   }, []);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
   const [showModal, setShowModal] = useState(false);
   const [editingPagamento, setEditingPagamento] = useState(null);
   const [formData, setFormData] = useState({
@@ -98,21 +103,41 @@ const Pagamentos = () => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
+  const filteredPagamentos = pagamentos.filter(p => {
+    if (!searchTerm) return true;
+    const q = searchTerm.toLowerCase();
+    return (p.descricao || '').toLowerCase().includes(q) || (p.categoria || '').toLowerCase().includes(q);
+  });
+  const pagedPagamentos = filteredPagamentos.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+  const handleSearch = (v) => { setSearchTerm(v); setCurrentPage(1); };
+
   return (
     <div>
       <Card>
         <div className="p-6 border-b border-slate-200">
           <div className="flex items-center justify-between">
             <h2 className="text-xl font-bold text-slate-800">Pagamentos</h2>
-            <Button icon={Plus} variant="danger" onClick={() => openModal()}>
-              Novo Pagamento
-            </Button>
+            <div className="flex items-center gap-2">
+              <div className="relative">
+                <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="Buscar descrição ou categoria..."
+                  value={searchTerm}
+                  onChange={(e) => handleSearch(e.target.value)}
+                  className="pl-9 pr-4 py-1.5 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 w-52"
+                />
+              </div>
+              <Button icon={Plus} variant="danger" onClick={() => openModal()}>
+                Novo Pagamento
+              </Button>
+            </div>
           </div>
         </div>
 
         <Table headers={headers}>
-          {pagamentos.length > 0 ? (
-            pagamentos.map(pagamento => (
+          {pagedPagamentos.length > 0 ? (
+            pagedPagamentos.map(pagamento => (
               <tr key={pagamento.id} className="hover:bg-slate-50">
                 <td className="px-6 py-4 text-sm text-slate-600">
                   {new Date(pagamento.data).toLocaleDateString('pt-BR')}
@@ -168,6 +193,12 @@ const Pagamentos = () => {
             </tr>
           )}
         </Table>
+        <Pagination
+          currentPage={currentPage}
+          totalItems={filteredPagamentos.length}
+          pageSize={PAGE_SIZE}
+          onPageChange={setCurrentPage}
+        />
       </Card>
 
       {/* Modal */}

@@ -4,3 +4,21 @@
 
 [build.environment]
   NODE_VERSION = "20"
+
+# SPA: redireciona todas as rotas para index.html
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+# index.html nunca deve ser cacheado pelo browser (garante que o JS novo seja carregado)
+[[headers]]
+  for = "/index.html"
+  [headers.values]
+    Cache-Control = "no-cache, no-store, must-revalidate"
+
+# Assets com hash podem ser cacheados por longo prazo
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"

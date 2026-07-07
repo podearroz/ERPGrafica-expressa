@@ -1,12 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Edit, Trash2, Save, CheckCircle, CreditCard, XCircle, RotateCcw } from 'lucide-react';
+import { Plus, Edit, Trash2, Save, CheckCircle, CreditCard, XCircle, RotateCcw, Search } from 'lucide-react';
 import useRecebimentoStore from '@store/recebimentoStore';
 import Card from '@components/common/Card';
 import Button from '@components/common/Button';
 import Table from '@components/common/Table';
 import Modal from '@components/common/Modal';
 import Input from '@components/common/Input';
+import Pagination from '@components/common/Pagination';
 import toast from 'react-hot-toast';
+
+const PAGE_SIZE = 50;
 
 // ─── Config ──────────────────────────────────────────────────────────────────
 const FORMAS = ['Dinheiro', 'PIX', 'Cartão de Crédito', 'Cartão de Débito', 'Boleto', 'Cheque', 'Transferência'];
@@ -37,6 +40,8 @@ const Recebimentos = () => {
   } = useRecebimentoStore();
 
   const [filtroStatus, setFiltroStatus] = useState('TODOS');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
   const [showFormModal, setShowFormModal] = useState(false);
   const [showRecebidoModal, setShowRecebidoModal] = useState(false);
   const [showParceladoModal, setShowParceladoModal] = useState(false);
@@ -61,9 +66,22 @@ const Recebimentos = () => {
 
   useEffect(() => { fetchRecebimentos(); }, []);
 
+  const handleSearch = (v) => { setSearchTerm(v); setCurrentPage(1); };
+  const handleFiltro = (v) => { setFiltroStatus(v); setCurrentPage(1); };
+
   // Filtro + ordenação
   const lista = (filtroStatus === 'TODOS' ? recebimentos : recebimentos.filter(r => r.status === filtroStatus))
-    .filter(r => r.tipo === 'entrada' || !r.tipo);
+    .filter(r => r.tipo === 'entrada' || !r.tipo)
+    .filter(r => {
+      if (!searchTerm) return true;
+      const q = searchTerm.toLowerCase();
+      return (
+        (r.cliente_nome || r.venda?.cliente?.nome || '').toLowerCase().includes(q) ||
+        (r.descricao || '').toLowerCase().includes(q)
+      );
+    });
+
+  const pagedLista = lista.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
 
   const contadores = {
     TODOS:      recebimentos.filter(r => r.tipo === 'entrada' || !r.tipo).length,
@@ -210,11 +228,11 @@ const Recebimentos = () => {
       <Card>
         <div className="p-6 border-b border-slate-200">
           <div className="flex items-center justify-between">
-            <div>
+            <div className="flex-1 mr-4">
               <h2 className="text-xl font-bold text-slate-800">Recebimentos</h2>
               <div className="flex gap-4 mt-2">
                 {abas.map(aba => (
-                  <button key={aba.key} onClick={() => setFiltroStatus(aba.key)}
+                  <button key={aba.key} onClick={() => handleFiltro(aba.key)}
                     className={`text-sm font-medium pb-1 border-b-2 transition-colors ${
                       filtroStatus === aba.key ? 'border-blue-500 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700'
                     }`}>
@@ -224,12 +242,24 @@ const Recebimentos = () => {
                 ))}
               </div>
             </div>
-            <Button icon={Plus} onClick={() => abrirFormModal()}>Novo Recebimento</Button>
+            <div className="flex items-center gap-2">
+              <div className="relative">
+                <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="Buscar cliente ou descrição..."
+                  value={searchTerm}
+                  onChange={(e) => handleSearch(e.target.value)}
+                  className="pl-9 pr-4 py-1.5 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 w-52"
+                />
+              </div>
+              <Button icon={Plus} onClick={() => abrirFormModal()}>Novo Recebimento</Button>
+            </div>
           </div>
         </div>
 
         <Table headers={headers}>
-          {lista.length > 0 ? lista.map(rec => (
+          {pagedLista.length > 0 ? pagedLista.map(rec => (
             <tr key={rec.id} className="hover:bg-slate-50">
               <td className="px-6 py-4 text-sm text-slate-600">
                 {rec.data ? new Date(rec.data + 'T00:00:00').toLocaleDateString('pt-BR') : '—'}
@@ -293,6 +323,12 @@ const Recebimentos = () => {
             </tr>
           )}
         </Table>
+        <Pagination
+          currentPage={currentPage}
+          totalItems={lista.length}
+          pageSize={PAGE_SIZE}
+          onPageChange={setCurrentPage}
+        />
       </Card>
 
       {/* Modal: Cadastro/Edição manual */}

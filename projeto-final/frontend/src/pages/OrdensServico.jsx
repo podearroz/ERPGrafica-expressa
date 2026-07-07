@@ -1,12 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { ClipboardList, CheckCircle, XCircle, FileText, Eye, Trash2, Eraser, Printer } from 'lucide-react';
+import { ClipboardList, CheckCircle, XCircle, FileText, Eye, Trash2, Eraser, Printer, Search } from 'lucide-react';
 import useOrdemServicoStore from '@store/ordemServicoStore';
 import { supabase } from '@/config/supabaseClient';
 import Card from '@components/common/Card';
 import Button from '@components/common/Button';
 import Table from '@components/common/Table';
 import Modal from '@components/common/Modal';
+import Pagination from '@components/common/Pagination';
 import toast from 'react-hot-toast';
+
+const PAGE_SIZE = 50;
 
 const STATUS_CONFIG = {
   ABERTA: { label: 'Aberta', className: 'bg-blue-100 text-blue-700' },
@@ -183,6 +186,8 @@ const OrdensServico = () => {
   const { ordensServico, loading, fetchOrdensServico, faturarOS, cancelarOS, deleteOS } = useOrdemServicoStore();
 
   const [filtroStatus, setFiltroStatus] = useState('TODOS');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
   const [osSelecionada, setOsSelecionada] = useState(null);
   const [showDetalhesModal, setShowDetalhesModal] = useState(false);
   const [showCancelarModal, setShowCancelarModal] = useState(false);
@@ -192,9 +197,20 @@ const OrdensServico = () => {
 
   useEffect(() => { fetchOrdensServico(); }, []);
 
-  const ordens = filtroStatus === 'TODOS'
-    ? ordensServico
-    : ordensServico.filter((os) => os.status === filtroStatus);
+  const handleSearch = (v) => { setSearchTerm(v); setCurrentPage(1); };
+  const handleFiltro = (v) => { setFiltroStatus(v); setCurrentPage(1); };
+
+  const ordens = (filtroStatus === 'TODOS' ? ordensServico : ordensServico.filter((os) => os.status === filtroStatus))
+    .filter((os) => {
+      if (!searchTerm) return true;
+      const q = searchTerm.toLowerCase();
+      return (
+        String(os.numero_os).includes(searchTerm) ||
+        (os.cliente?.nome || os.cliente_nome || '').toLowerCase().includes(q)
+      );
+    });
+
+  const pagedOrdens = ordens.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
 
   const contadores = {
     TODOS: ordensServico.length,
@@ -284,13 +300,13 @@ const OrdensServico = () => {
       <Card>
         <div className="p-6 border-b border-slate-200">
           <div className="flex items-center justify-between">
-            <div>
+            <div className="flex-1 mr-4">
               <h2 className="text-xl font-bold text-slate-800">Ordens de Serviço</h2>
               <div className="flex gap-4 mt-2">
                 {abas.map((aba) => (
                   <button
                     key={aba.key}
-                    onClick={() => setFiltroStatus(aba.key)}
+                    onClick={() => handleFiltro(aba.key)}
                     className={`text-sm font-medium pb-1 border-b-2 transition-colors ${
                       filtroStatus === aba.key
                         ? 'border-blue-500 text-blue-600'
@@ -304,6 +320,19 @@ const OrdensServico = () => {
               </div>
             </div>
 
+            {/* Busca */}
+            <div className="flex items-center gap-3">
+              <div className="relative">
+                <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="Buscar por nº OS ou cliente..."
+                  value={searchTerm}
+                  onChange={(e) => handleSearch(e.target.value)}
+                  className="pl-9 pr-4 py-1.5 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 w-56"
+                />
+              </div>
+            </div>
             {/* Resumo rápido */}
             <div className="flex items-center gap-3">
               <button
@@ -328,8 +357,8 @@ const OrdensServico = () => {
         </div>
 
         <Table headers={headers}>
-          {ordens.length > 0 ? (
-            ordens.map((os) => (
+          {pagedOrdens.length > 0 ? (
+            pagedOrdens.map((os) => (
               <tr key={os.id} className="hover:bg-slate-50">
                 <td className="px-6 py-4 text-sm font-mono font-medium text-slate-800">{os.numero_os}</td>
                 <td className="px-6 py-4 text-sm text-slate-600">
@@ -378,6 +407,12 @@ const OrdensServico = () => {
             </tr>
           )}
         </Table>
+        <Pagination
+          currentPage={currentPage}
+          totalItems={ordens.length}
+          pageSize={PAGE_SIZE}
+          onPageChange={setCurrentPage}
+        />
       </Card>
 
       {/* Modal: Detalhes da OS */}

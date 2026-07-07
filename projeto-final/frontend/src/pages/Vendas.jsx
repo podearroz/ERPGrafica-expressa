@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Edit, Trash2, Save, CheckCircle } from 'lucide-react';
+import { Plus, Edit, Trash2, Save, CheckCircle, Search } from 'lucide-react';
 import useVendaStore from '@store/vendaStore';
 import useClienteStore from '@store/clienteStore';
 import Card from '@components/common/Card';
+import Pagination from '@components/common/Pagination';
+const PAGE_SIZE = 50;
 import Button from '@components/common/Button';
 import Table from '@components/common/Table';
 import Modal from '@components/common/Modal';
@@ -41,6 +43,8 @@ const Vendas = () => {
     fetchClientes();
   }, []);
 
+  const [searchTerm, setSearchTerm] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
   const [showModal, setShowModal] = useState(false);
   const [editingVenda, setEditingVenda] = useState(null);
   const [formData, setFormData] = useState(FORM_VAZIO);
@@ -210,21 +214,41 @@ const Vendas = () => {
     .reduce((sum, i) => sum + (parseFloat(i.valorUnitario) || 0) * (parseFloat(i.quantidade) || 1), 0)
     .toLocaleString('pt-BR', { minimumFractionDigits: 2 });
 
+  const filteredVendas = vendas.filter(v => {
+    if (!searchTerm) return true;
+    const q = searchTerm.toLowerCase();
+    return getClienteNome(v).toLowerCase().includes(q) || (v.produtos || '').toLowerCase().includes(q);
+  });
+  const pagedVendas = filteredVendas.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+  const handleSearch = (val) => { setSearchTerm(val); setCurrentPage(1); };
+
   return (
     <div>
       <Card>
         <div className="p-6 border-b border-slate-200">
           <div className="flex items-center justify-between">
             <h2 className="text-xl font-bold text-slate-800">Vendas</h2>
-            <Button icon={Plus} onClick={() => openModal()}>
-              Nova Venda
-            </Button>
+            <div className="flex items-center gap-2">
+              <div className="relative">
+                <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="Buscar cliente ou produto..."
+                  value={searchTerm}
+                  onChange={(e) => handleSearch(e.target.value)}
+                  className="pl-9 pr-4 py-1.5 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 w-52"
+                />
+              </div>
+              <Button icon={Plus} onClick={() => openModal()}>
+                Nova Venda
+              </Button>
+            </div>
           </div>
         </div>
 
         <Table headers={headers}>
-          {vendas.length > 0 ? (
-            vendas.map((venda) => (
+          {pagedVendas.length > 0 ? (
+            pagedVendas.map((venda) => (
               <tr key={venda.id} className="hover:bg-slate-50">
                 <td className="px-6 py-4 text-sm text-slate-600">
                   {new Date(venda.data + 'T00:00:00').toLocaleDateString('pt-BR')}
@@ -285,6 +309,12 @@ const Vendas = () => {
             </tr>
           )}
         </Table>
+        <Pagination
+          currentPage={currentPage}
+          totalItems={filteredVendas.length}
+          pageSize={PAGE_SIZE}
+          onPageChange={setCurrentPage}
+        />
       </Card>
 
       {/* Modal */}

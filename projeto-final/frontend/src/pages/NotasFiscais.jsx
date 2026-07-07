@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Edit, Trash2, Save, Send, FileText, CheckCircle, Clock, ChevronLeft, ChevronRight, PlusCircle, XCircle, Download, Eye, Copy, Key, Ban } from 'lucide-react';
+import { Plus, Edit, Trash2, Save, Send, FileText, CheckCircle, Clock, ChevronLeft, ChevronRight, PlusCircle, XCircle, Download, Eye, Copy, Key, Ban, Search } from 'lucide-react';
 import useNotaFiscalStore from '@store/notaFiscalStore';
 import Card from '@components/common/Card';
+import Pagination from '@components/common/Pagination';
 import Button from '@components/common/Button';
 import Table from '@components/common/Table';
 import Modal from '@components/common/Modal';
@@ -1127,6 +1128,8 @@ const NotasFiscais = () => {
   const [notaDetalhes, setNotaDetalhes] = useState(null);
   const [notaParaCancelar, setNotaParaCancelar] = useState(null);
   const [filtroStatus, setFiltroStatus] = useState('TODOS');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
   const [formData, setFormData] = useState(FORM_VAZIO);
   const [clientesLista, setClientesLista] = useState([]);
 
@@ -1136,7 +1139,21 @@ const NotasFiscais = () => {
       .then(({ data }) => { if (data) setClientesLista(data); });
   }, []);
 
-  const notasExibidas = filtroStatus === 'TODOS' ? notasFiscais : notasFiscais.filter(n => n.status === filtroStatus);
+  const notasExibidas = (filtroStatus === 'TODOS' ? notasFiscais : notasFiscais.filter(n => n.status === filtroStatus))
+    .filter(n => {
+      if (!searchTerm) return true;
+      const q = searchTerm.toLowerCase();
+      return (
+        (n.numero || '').includes(searchTerm) ||
+        (n.cliente || '').toLowerCase().includes(q) ||
+        (n.destinatario_nome || '').toLowerCase().includes(q)
+      );
+    });
+
+  const pagedNotas = notasExibidas.slice((currentPage - 1) * 50, currentPage * 50);
+  const handleSearchNF = (v) => { setSearchTerm(v); setCurrentPage(1); };
+  const handleFiltroNF = (v) => { setFiltroStatus(v); setCurrentPage(1); };
+
   const contadores = {
     TODOS: notasFiscais.length,
     Pendente: notasFiscais.filter(n => n.status === 'Pendente').length,
@@ -1204,14 +1221,12 @@ const NotasFiscais = () => {
         <ModalEmitirNFe nota={notaParaEmitir}
           onClose={() => { setShowEmitirModal(false); setNotaParaEmitir(null); }}
           onSucesso={async (id, updates) => {
-            let saved;
-            if (id && notasFiscais.some(n => n.id === id)) {
-              saved = await updateNotaFiscal(id, updates);
-            } else {
-              // Registro criado pelo backend mas ainda não está no estado local — sincroniza com o banco
-              await fetchNotasFiscais();
-              saved = useNotaFiscalStore.getState().notasFiscais.find(n => n.id === id || n.numero === updates.numero);
-            }
+            // Sempre recarrega do banco — o backend já salvou corretamente.
+            // Nunca chama addNotaFiscal (que criaria duplicata).
+            await fetchNotasFiscais();
+            const saved = useNotaFiscalStore.getState().notasFiscais.find(
+              n => (id && n.id === id) || n.numero === updates.numero
+            );
             setNotaDetalhes(saved || null);
             setShowDetalhesModal(true);
           }} />
@@ -1236,14 +1251,26 @@ const NotasFiscais = () => {
               <h2 className="text-xl font-bold text-slate-800">Notas Fiscais</h2>
               <div className="flex gap-4 mt-2">
                 {[{ key: 'TODOS', label: 'Todas' }, { key: 'Pendente', label: 'Pendentes' }, { key: 'Emitida', label: 'Emitidas' }].map(a => (
-                  <button key={a.key} onClick={() => setFiltroStatus(a.key)}
+                  <button key={a.key} onClick={() => handleFiltroNF(a.key)}
                     className={`text-sm font-medium pb-1 border-b-2 transition-colors ${filtroStatus === a.key ? 'border-blue-500 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}>
                     {a.label} <span className="text-xs opacity-70">({contadores[a.key] ?? 0})</span>
                   </button>
                 ))}
               </div>
             </div>
-            <Button icon={Plus} onClick={abrirNovaEmissao}>Nova Nota Fiscal</Button>
+            <div className="flex items-center gap-2">
+              <div className="relative">
+                <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="Buscar nº, cliente..."
+                  value={searchTerm}
+                  onChange={(e) => handleSearchNF(e.target.value)}
+                  className="pl-9 pr-4 py-1.5 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 w-44"
+                />
+              </div>
+              <Button icon={Plus} onClick={abrirNovaEmissao}>Nova Nota Fiscal</Button>
+            </div>
           </div>
         </div>
 
@@ -1256,7 +1283,7 @@ const NotasFiscais = () => {
         )}
 
         <Table headers={headers}>
-          {notasExibidas.length > 0 ? notasExibidas.map(nota => (
+          {pagedNotas.length > 0 ? pagedNotas.map(nota => (
             <tr key={nota.id} className="hover:bg-slate-50">
               <td className="px-6 py-4 text-sm font-mono font-medium text-slate-800">{nota.numero}/{nota.serie || '1'}</td>
               <td className="px-6 py-4 text-sm text-slate-600">{new Date(nota.data + 'T00:00:00').toLocaleDateString('pt-BR')}</td>
@@ -1317,6 +1344,12 @@ const NotasFiscais = () => {
             </tr>
           )}
         </Table>
+        <Pagination
+          currentPage={currentPage}
+          totalItems={notasExibidas.length}
+          pageSize={50}
+          onPageChange={setCurrentPage}
+        />
       </Card>
 
       <Modal isOpen={showModal} onClose={() => setShowModal(false)}

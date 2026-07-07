@@ -6,7 +6,10 @@ import Button from '@components/common/Button';
 import Table from '@components/common/Table';
 import Modal from '@components/common/Modal';
 import Input from '@components/common/Input';
+import Pagination from '@components/common/Pagination';
 import toast from 'react-hot-toast';
+
+const PAGE_SIZE = 50;
 
 const emptyForm = {
   nome: '',
@@ -32,6 +35,7 @@ const Clientes = () => {
   }, []);
 
   const [searchTerm, setSearchTerm] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
   const [showModal, setShowModal] = useState(false);
   const [editingCliente, setEditingCliente] = useState(null);
   const [formData, setFormData] = useState(emptyForm);
@@ -44,11 +48,19 @@ const Clientes = () => {
     { label: 'Ações', align: 'right' }
   ];
 
-  const filteredClientes = clientes.filter(c =>
-    (c.nome || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (c.cpf_cnpj || c.cpfCnpj || '').includes(searchTerm) ||
-    (c.email || '').toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredClientes = clientes.filter(c => {
+    const q = searchTerm.toLowerCase();
+    return (
+      (c.nome || '').toLowerCase().includes(q) ||
+      (c.nome_fantasia || '').toLowerCase().includes(q) ||
+      (c.cpf_cnpj || c.cpfCnpj || '').includes(searchTerm) ||
+      (c.email || '').toLowerCase().includes(q)
+    );
+  });
+
+  const pagedClientes = filteredClientes.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+
+  const handleSearch = (v) => { setSearchTerm(v); setCurrentPage(1); };
 
   const openModal = (cliente = null) => {
     if (cliente) {
@@ -133,15 +145,15 @@ const Clientes = () => {
               type="text"
               placeholder="Buscar cliente por nome, CPF/CNPJ ou email..."
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={(e) => handleSearch(e.target.value)}
               className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
         </div>
 
         <Table headers={headers}>
-          {filteredClientes.length > 0 ? (
-            filteredClientes.map(cliente => (
+          {pagedClientes.length > 0 ? (
+            pagedClientes.map(cliente => (
               <tr key={cliente.id} className="hover:bg-slate-50">
                 <td className="px-6 py-4 text-sm font-medium text-slate-800">
                   {cliente.nome}
@@ -184,6 +196,12 @@ const Clientes = () => {
             </tr>
           )}
         </Table>
+        <Pagination
+          currentPage={currentPage}
+          totalItems={filteredClientes.length}
+          pageSize={PAGE_SIZE}
+          onPageChange={setCurrentPage}
+        />
       </Card>
 
       {/* Modal */}
