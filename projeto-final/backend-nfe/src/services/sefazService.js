@@ -293,7 +293,12 @@ export function assinarEvento(xmlStr) {
     ],
     digestAlgorithm: 'http://www.w3.org/2000/09/xmldsig#sha1',
   });
-  sig.computeSignature(xmlStr);
+  sig.computeSignature(xmlStr, {
+    location: {
+      reference: "//*[local-name(.)='infEvento']",
+      action: 'after',
+    },
+  });
   console.log('[ASSINATURA EVENTO] Evento assinado com sucesso.');
   return sig.getSignedXml();
 }
