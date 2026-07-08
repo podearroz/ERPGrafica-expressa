@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ClipboardList, CheckCircle, XCircle, FileText, Eye, Trash2, Eraser, Printer, Search } from 'lucide-react';
+import { ClipboardList, CheckCircle, XCircle, FileText, Eye, Trash2, Printer, Search } from 'lucide-react';
 import useOrdemServicoStore from '@store/ordemServicoStore';
 import { supabase } from '@/config/supabaseClient';
 import Card from '@components/common/Card';
@@ -278,17 +278,6 @@ const OrdensServico = () => {
     }
   };
 
-  const handleLimparTudo = async () => {
-    if (!confirm('⚠️ Isso vai apagar TODAS as ordens de serviço. Continuar?')) return;
-    try {
-      await supabase.from('itens_os').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-      await supabase.from('ordens_servico').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-      await fetchOrdensServico();
-      toast.success('Todas as OS foram removidas.');
-    } catch (e) {
-      toast.error('Erro ao limpar OS: ' + e.message);
-    }
-  };
 
   const headers = [
     { label: 'Nº OS' },
@@ -376,13 +365,6 @@ const OrdensServico = () => {
             </div>
             {/* Resumo rápido */}
             <div className="flex items-center gap-3">
-              <button
-                onClick={handleLimparTudo}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-red-600 border border-red-200 rounded-lg hover:bg-red-50 transition-colors"
-                title="Limpar todas as OS (apenas para testes)"
-              >
-                <Eraser className="w-3.5 h-3.5" /> Limpar OS
-              </button>
             <div className="hidden md:flex gap-4 text-center">
               <div className="bg-blue-50 rounded-lg px-4 py-2">
                 <p className="text-2xl font-bold text-blue-700">{contadores.ABERTA}</p>
