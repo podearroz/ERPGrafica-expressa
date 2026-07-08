@@ -56,6 +56,10 @@ export function buildNFeXml({ numero, serie = 1, naturezaOperacao = 'Venda de pr
   const cNF = gerarCNF();
   const { chave, cDV } = gerarChaveAcesso({ cUF, aamm, cnpj, serie, nNF: numero, cNF });
 
+  // idDest: 1=interna, 2=interestadual, 3=exterior — determinado pelo CFOP do primeiro item
+  const primeiroCfop = String((itens && itens[0]?.cfop) || '5101');
+  const idDest = primeiroCfop.startsWith('7') ? '3' : primeiroCfop.startsWith('6') ? '2' : '1';
+
   console.log(`[XML] chave=${chave} (44 dígitos: ${chave.length === 44 ? 'OK' : 'ERRO'})`);
   console.log(`[XML] tpAmb=${tpAmb} dhEmi=${dhEmi} cDV=${cDV}`);
 
@@ -130,7 +134,7 @@ export function buildNFeXml({ numero, serie = 1, naturezaOperacao = 'Venda de pr
           dhEmi,
           dhSaiEnt: dhEmi,
           tpNF:     '1',       // saída
-          idDest:   '1',       // interna
+          idDest,              // 1=interna, 2=interestadual, 3=exterior (auto pelo CFOP)
           cMunFG:   process.env.EMPRESA_CODIGO_MUNICIPIO || '1101708',
           tpImp:    '1',       // DANFE retrato
           tpEmis:   '1',       // emissão normal
