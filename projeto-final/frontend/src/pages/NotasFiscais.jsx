@@ -117,6 +117,7 @@ const SectionTitle = ({ children }) => (
 // ─── Modal de Emissão ─────────────────────────────────────────────────────────
 const ModalEmitirNFe = ({ nota, onClose, onSucesso }) => {
   const DRAFT_KEY = `nfe_draft_${nota.id}`;
+  const NFE_FORM_STATE_KEY = 'nfe_form_state';
   const [aba, setAba] = useState(0);
   const [emitindo, setEmitindo] = useState(false);
   const [carregando, setCarregando] = useState(true);
@@ -261,7 +262,8 @@ const ModalEmitirNFe = ({ nota, onClose, onSucesso }) => {
       const saved = localStorage.getItem(DRAFT_KEY);
       if (!saved) return;
       const draft = JSON.parse(saved);
-      if (draft.ident)              setIdent(draft.ident);
+      // Preserva número e datas frescos (do nfe_controle/hoje), restaura o resto do rascunho
+      if (draft.ident)              setIdent(p => ({ ...draft.ident, numero: p.numero, data: p.data, data_saida: p.data_saida, hora_saida: p.hora_saida }));
       if (draft.dest)               setDest(draft.dest);
       if (draft.itens)              setItens(draft.itens);
       if (draft.totais)             setTotais(draft.totais);
