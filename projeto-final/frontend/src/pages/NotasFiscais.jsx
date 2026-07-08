@@ -123,6 +123,7 @@ const ModalEmitirNFe = ({ nota, onClose, onSucesso }) => {
   const [gerandoPreview, setGerandoPreview] = useState(false);
   const [clientes, setClientes] = useState([]);
   const [erroEmissao, setErroEmissao] = useState(null); // { cStat, xMotivo, numeroDevolvido }
+  const [buscandoCep, setBuscandoCep] = useState(false);
 
   const hoje = new Date().toISOString().split('T')[0];
 
@@ -297,6 +298,29 @@ const ModalEmitirNFe = ({ nota, onClose, onSucesso }) => {
 
   const setI = (f, v) => setIdent(p => ({ ...p, [f]: v }));
   const setD = (f, v) => setDest(p => ({ ...p, [f]: v }));
+
+  const buscarCep = async (cepRaw) => {
+    const cep = cepRaw.replace(/\D/g, '');
+    if (cep.length !== 8) return;
+    setBuscandoCep(true);
+    try {
+      const res = await fetch(`https://viacep.com.br/ws/${cep}/json/`);
+      const data = await res.json();
+      if (data.erro) { toast.error('CEP não encontrado.'); return; }
+      setDest(p => ({
+        ...p,
+        logradouro:       data.logradouro || p.logradouro,
+        bairro:           data.bairro     || p.bairro,
+        municipio:        data.localidade || p.municipio,
+        uf:               data.uf         || p.uf,
+        codigo_municipio: data.ibge       || p.codigo_municipio,
+      }));
+    } catch {
+      toast.error('Erro ao consultar CEP. Preencha o código IBGE manualmente.');
+    } finally {
+      setBuscandoCep(false);
+    }
+  };
   const setT = (f, v) => setTotais(p => ({ ...p, [f]: v }));
   const setTr = (f, v) => setTransp(p => ({ ...p, [f]: v }));
   const setDet = (f, v) => setDetalhes(p => ({ ...p, [f]: v }));
@@ -329,6 +353,9 @@ const ModalEmitirNFe = ({ nota, onClose, onSucesso }) => {
     }
     if (aba === 1 && (!dest.nome || !dest.cpf_cnpj)) {
       toast.error('Preencha: Nome/Razão Social e CPF/CNPJ.'); return false;
+    }
+    if (aba === 1 && !dest.codigo_municipio) {
+      toast.error('Preencha o Código IBGE do Município do destinatário (ou informe o CEP para preenchimento automático).'); return false;
     }
     if (aba === 2) {
       for (const it of itens) {
@@ -639,7 +666,10 @@ const ModalEmitirNFe = ({ nota, onClose, onSucesso }) => {
                   <div className="grid grid-cols-4 gap-3">
                     <Inp label="Município" value={dest.municipio} onChange={e => setD('municipio', e.target.value)} placeholder="Ex: VILHENA" className="col-span-2" />
                     <Inp label="UF" value={dest.uf} onChange={e => setD('uf', e.target.value)} placeholder="RO" maxLength={2} />
-                    <Inp label="CEP" value={dest.cep} onChange={e => setD('cep', e.target.value)} placeholder="Ex: 76987-487" />
+                    <Inp label={buscandoCep ? 'CEP (buscando...)' : 'CEP'} value={dest.cep}
+                      onChange={e => setD('cep', e.target.value)}
+                      onBlur={e => buscarCep(e.target.value)}
+                      placeholder="Ex: 76987-487" disabled={buscandoCep} />
                   </div>
                   <Inp label="Código IBGE do Município" value={dest.codigo_municipio}
                     onChange={e => setD('codigo_municipio', e.target.value)} placeholder="Ex: 1101708 (Vilhena-RO)" />
