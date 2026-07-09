@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { ClipboardList, CheckCircle, XCircle, FileText, Eye, Trash2, Printer, Search } from 'lucide-react';
+import { ClipboardList, CheckCircle, XCircle, FileText, Eye, Trash2, Printer, Search, DollarSign } from 'lucide-react';
+
+const FORMAS_PAGAMENTO = ['Dinheiro', 'PIX', 'Cartão de Débito', 'Cartão de Crédito', 'Boleto', 'Cheque', 'Transferência'];
 import useOrdemServicoStore from '@store/ordemServicoStore';
 import { supabase } from '@/config/supabaseClient';
 import Card from '@components/common/Card';
@@ -197,6 +199,9 @@ const OrdensServico = () => {
   const [showFaturarModal, setShowFaturarModal] = useState(false);
   const [motivoCancelamento, setMotivoCancelamento] = useState('');
   const [faturarComNF, setFaturarComNF] = useState(false);
+  const [pagamentoStatus, setPagamentoStatus] = useState('a_receber'); // 'pago' | 'a_receber'
+  const [formaPagamento, setFormaPagamento] = useState('PIX');
+  const [dataPagamento, setDataPagamento] = useState(new Date().toISOString().split('T')[0]);
 
   useEffect(() => { fetchOrdensServico(); }, []);
 
@@ -235,6 +240,9 @@ const OrdensServico = () => {
   const abrirFaturar = (os) => {
     setOsSelecionada(os);
     setFaturarComNF(false);
+    setPagamentoStatus('a_receber');
+    setFormaPagamento('PIX');
+    setDataPagamento(new Date().toISOString().split('T')[0]);
     setShowFaturarModal(true);
   };
 
@@ -246,11 +254,19 @@ const OrdensServico = () => {
 
   const handleFaturar = async () => {
     try {
-      const resultado = await faturarOS(osSelecionada.id, faturarComNF);
+      const pagamentoInfo = {
+        pago: pagamentoStatus === 'pago',
+        forma_recebimento: formaPagamento,
+        data_recebimento: dataPagamento,
+      };
+      const resultado = await faturarOS(osSelecionada.id, faturarComNF, pagamentoInfo);
+      const msgPag = pagamentoStatus === 'pago'
+        ? ` Recebimento baixado como Recebido (${formaPagamento}).`
+        : ' Lançado em Contas a Receber como pendente.';
       if (faturarComNF && resultado.notaFiscal) {
-        toast.success(`OS faturada! NF nº ${resultado.notaFiscal.numero} criada como "Pendente" em Notas Fiscais.`, { duration: 5000 });
+        toast.success(`OS faturada! NF nº ${resultado.notaFiscal.numero} criada como "Pendente".${msgPag}`, { duration: 6000 });
       } else {
-        toast.success('OS faturada sem NF-e com sucesso!');
+        toast.success(`OS faturada!${msgPag}`, { duration: 5000 });
       }
       setShowFaturarModal(false);
     } catch (error) {
@@ -600,6 +616,64 @@ const OrdensServico = () => {
                 </div>
               </label>
             </div>
+          </div>
+
+          {/* Seção: Baixa no Caixa */}
+          <div>
+            <p className="text-sm font-medium text-slate-700 mb-3 flex items-center gap-1">
+              <DollarSign className="w-4 h-4 text-green-600" /> Baixa no Caixa:
+            </p>
+            <div className="space-y-2">
+              <label className="flex items-start gap-3 p-3 border rounded-lg cursor-pointer hover:bg-slate-50">
+                <input
+                  type="radio"
+                  name="pagamentoStatus"
+                  checked={pagamentoStatus === 'a_receber'}
+                  onChange={() => setPagamentoStatus('a_receber')}
+                  className="mt-0.5"
+                />
+                <div>
+                  <p className="font-medium text-slate-800">A receber (pendente)</p>
+                  <p className="text-xs text-slate-500">Lança em Contas a Receber com status "Não Pago".</p>
+                </div>
+              </label>
+              <label className="flex items-start gap-3 p-3 border rounded-lg cursor-pointer hover:bg-slate-50">
+                <input
+                  type="radio"
+                  name="pagamentoStatus"
+                  checked={pagamentoStatus === 'pago'}
+                  onChange={() => setPagamentoStatus('pago')}
+                  className="mt-0.5"
+                />
+                <div>
+                  <p className="font-medium text-slate-800">Já recebido (baixar caixa)</p>
+                  <p className="text-xs text-slate-500">Marca o recebimento como quitado imediatamente.</p>
+                </div>
+              </label>
+            </div>
+            {pagamentoStatus === 'pago' && (
+              <div className="mt-3 grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-slate-600 mb-1">Forma de Pagamento</label>
+                  <select
+                    className="input text-sm"
+                    value={formaPagamento}
+                    onChange={(e) => setFormaPagamento(e.target.value)}
+                  >
+                    {FORMAS_PAGAMENTO.map(f => <option key={f}>{f}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-600 mb-1">Data do Recebimento</label>
+                  <input
+                    type="date"
+                    className="input text-sm"
+                    value={dataPagamento}
+                    onChange={(e) => setDataPagamento(e.target.value)}
+                  />
+                </div>
+              </div>
+            )}
           </div>
 
           <p className="text-xs text-slate-400">

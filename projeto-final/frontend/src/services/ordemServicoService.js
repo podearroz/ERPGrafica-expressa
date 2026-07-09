@@ -3,18 +3,18 @@ import { estoqueService } from "./estoqueService";
 import { notaFiscalService } from "./notaFiscalService";
 
 const gerarNumeroOS = async () => {
-  // Busca todos os números existentes para garantir unicidade mesmo após exclusões
+  // Busca apenas OS no formato do sistema (OS-00001), ignorando importações VHSYS (números puros)
   const { data } = await supabase
     .from("ordens_servico")
     .select("numero_os")
-    .not("numero_os", "is", null);
+    .like("numero_os", "OS-%");
 
   let max = 0;
   if (data) {
     data.forEach((row) => {
-      const match = row.numero_os?.match(/OS-(\d+)/);
+      const match = row.numero_os?.match(/^OS-(\d+)$/);
       if (match) {
-        const n = parseInt(match[1]);
+        const n = parseInt(match[1], 10);
         if (n > max) max = n;
       }
     });
@@ -105,7 +105,7 @@ export const ordemServicoService = {
     return os;
   },
 
-  async faturar(osId, comNF = false) {
+  async faturar(osId, comNF = false, pagamentoInfo = null) {
     const os = await ordemServicoService.getById(osId);
 
     if (os.status !== "ABERTA") {
@@ -130,13 +130,14 @@ export const ordemServicoService = {
     }
 
     const novoStatus = comNF ? "FATURADA" : "FATURADA_SEM_NF";
+    const dataFechamento = new Date().toISOString().split("T")[0];
 
     const { data, error } = await supabase
       .from("ordens_servico")
       .update({
         status: novoStatus,
         nota_fiscal_id: notaFiscalId,
-        data_fechamento: new Date().toISOString().split("T")[0],
+        data_fechamento: dataFechamento,
         faturado_em: new Date().toISOString(),
         faturado_por: null,
       })
@@ -144,6 +145,51 @@ export const ordemServicoService = {
       .select()
       .single();
     if (error) throw error;
+
+    // ── Baixa no Caixa (Recebimentos) ─────────────────────────────────────
+    if (pagamentoInfo) {
+      const nomeCliente = os.cliente?.nome || os.cliente_nome || null;
+      const statusRec = pagamentoInfo.pago ? "Recebido" : "Não Pago";
+      const dataRec = pagamentoInfo.pago
+        ? pagamentoInfo.data_recebimento || dataFechamento
+        : null;
+
+      // Busca recebimento existente vinculado à OS
+      const { data: recExistente } = await supabase
+        .from("recebimentos")
+        .select("id")
+        .eq("os_id", osId)
+        .maybeSingle();
+
+      if (recExistente) {
+        await supabase
+          .from("recebimentos")
+          .update({
+            status: statusRec,
+            forma_recebimento: pagamentoInfo.forma_recebimento || null,
+            data_recebimento: dataRec,
+          })
+          .eq("id", recExistente.id);
+      } else {
+        // Recebimento não existe (OS importada ou criada sem venda) → cria agora
+        await supabase.from("recebimentos").insert([{
+          user_id: null,
+          os_id: osId,
+          venda_id: os.venda_id || null,
+          data: dataFechamento,
+          valor: parseFloat(os.valor_final),
+          tipo: "entrada",
+          descricao: `OS ${os.numero_os} – ${nomeCliente || "Cliente"}`,
+          categoria: "OS",
+          status: statusRec,
+          forma_recebimento: pagamentoInfo.forma_recebimento || null,
+          data_recebimento: dataRec,
+          cliente_nome: nomeCliente,
+          parcelas: 1,
+          parcela_atual: 1,
+        }]);
+      }
+    }
 
     return { os: data, notaFiscal };
   },

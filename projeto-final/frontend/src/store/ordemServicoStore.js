@@ -16,10 +16,10 @@ const useOrdemServicoStore = create((set, get) => ({
     }
   },
 
-  faturarOS: async (osId, comNF = false) => {
+  faturarOS: async (osId, comNF = false, pagamentoInfo = null) => {
     set({ loading: true, error: null });
     try {
-      const resultado = await ordemServicoService.faturar(osId, comNF);
+      const resultado = await ordemServicoService.faturar(osId, comNF, pagamentoInfo);
       set((state) => ({
         ordensServico: state.ordensServico.map((os) =>
           os.id === osId ? { ...os, ...resultado.os } : os
