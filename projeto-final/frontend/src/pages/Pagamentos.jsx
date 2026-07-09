@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Edit, Trash2, Save, Search } from 'lucide-react';
+import { Plus, Edit, Trash2, Save, Search, CheckCircle } from 'lucide-react';
 import usePagamentoStore from '@store/pagamentoStore';
 import Card from '@components/common/Card';
 import Button from '@components/common/Button';
@@ -23,21 +23,25 @@ const Pagamentos = () => {
   const [cpfFilter, setCpfFilter] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [showModal, setShowModal] = useState(false);
+  const [showBaixarModal, setShowBaixarModal] = useState(false);
   const [editingPagamento, setEditingPagamento] = useState(null);
+  const [baixandoPagamento, setBaixandoPagamento] = useState(null);
+  const [baixarForm, setBaixarForm] = useState({ data_pagamento: new Date().toISOString().split('T')[0], conta_bancaria: 'SICOOB' });
   const [formData, setFormData] = useState({
     data: new Date().toISOString().split('T')[0],
     valor: '',
     tipo: 'saida',
     descricao: '',
     categoria: '',
-    status: 'Pendente'
+    status: 'Pendente',
+    conta_bancaria: 'SICOOB',
   });
 
   const headers = [
     { label: 'Data' },
     { label: 'Descrição' },
     { label: 'Categoria' },
-    { label: 'Tipo' },
+    { label: 'Conta' },
     { label: 'Valor' },
     { label: 'Status' },
     { label: 'Ações', align: 'right' }
@@ -55,10 +59,29 @@ const Pagamentos = () => {
         tipo: 'saida',
         descricao: '',
         categoria: '',
-        status: 'Pendente'
+        status: 'Pendente',
+        conta_bancaria: 'SICOOB',
       });
     }
     setShowModal(true);
+  };
+
+  const abrirBaixar = (pag) => {
+    setBaixandoPagamento(pag);
+    setBaixarForm({ data_pagamento: new Date().toISOString().split('T')[0], conta_bancaria: pag.conta_bancaria || 'SICOOB' });
+    setShowBaixarModal(true);
+  };
+
+  const handleBaixar = async () => {
+    try {
+      await updatePagamento(baixandoPagamento.id, {
+        status: 'Pago',
+        data_pagamento: baixarForm.data_pagamento,
+        conta_bancaria: baixarForm.conta_bancaria,
+      });
+      toast.success('Pagamento baixado com sucesso!');
+      setShowBaixarModal(false);
+    } catch { toast.error('Erro ao baixar pagamento.'); }
   };
 
   const closeModal = () => {
@@ -193,9 +216,11 @@ const Pagamentos = () => {
                 </td>
                 <td className="px-6 py-4 text-sm">
                   <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                    pagamento.tipo === 'entrada' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                    pagamento.conta_bancaria === 'CAIXA' ? 'bg-green-100 text-green-700' :
+                    pagamento.conta_bancaria === 'MAQUININHA' ? 'bg-purple-100 text-purple-700' :
+                    'bg-blue-100 text-blue-700'
                   }`}>
-                    {pagamento.tipo === 'entrada' ? 'Entrada' : 'Saída'}
+                    {pagamento.conta_bancaria || 'SICOOB'}
                   </span>
                 </td>
                 <td className="px-6 py-4 text-sm font-semibold">
@@ -210,17 +235,26 @@ const Pagamentos = () => {
                     {pagamento.status}
                   </span>
                 </td>
-                <td className="px-6 py-4 text-sm text-right">
+                <td className="px-6 py-4 text-sm text-right space-x-1">
+                  {pagamento.status !== 'Pago' && (
+                    <button
+                      onClick={() => abrirBaixar(pagamento)}
+                      className="inline-flex items-center gap-1 px-2 py-1 text-xs rounded bg-green-50 text-green-700 hover:bg-green-100 font-medium"
+                      title="Dar baixa (marcar como pago)"
+                    >
+                      <CheckCircle className="w-3 h-3" /> Baixar
+                    </button>
+                  )}
                   <button
                     onClick={() => openModal(pagamento)}
-                    className="text-blue-600 hover:text-blue-700 mr-3"
+                    className="text-blue-600 hover:text-blue-700 ml-1"
                     title="Editar"
                   >
                     <Edit className="w-4 h-4" />
                   </button>
                   <button
                     onClick={() => handleDelete(pagamento.id)}
-                    className="text-red-600 hover:text-red-700"
+                    className="text-red-600 hover:text-red-700 ml-1"
                     title="Excluir"
                   >
                     <Trash2 className="w-4 h-4" />
@@ -306,9 +340,20 @@ const Pagamentos = () => {
           />
 
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
-              Status *
-            </label>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Conta Bancária *</label>
+            <select
+              value={formData.conta_bancaria || 'SICOOB'}
+              onChange={(e) => handleInputChange('conta_bancaria', e.target.value)}
+              className="input"
+            >
+              <option value="SICOOB">SICOOB (Banco)</option>
+              <option value="CAIXA">CAIXA (Dinheiro)</option>
+              <option value="MAQUININHA">MAQUININHA (Cartão)</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Status *</label>
             <select
               value={formData.status}
               onChange={(e) => handleInputChange('status', e.target.value)}
@@ -319,6 +364,51 @@ const Pagamentos = () => {
             </select>
           </div>
         </div>
+      </Modal>
+
+      {/* Modal: Baixar Pagamento */}
+      <Modal
+        isOpen={showBaixarModal}
+        onClose={() => setShowBaixarModal(false)}
+        title="Dar Baixa no Pagamento"
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setShowBaixarModal(false)}>Cancelar</Button>
+            <Button icon={CheckCircle} onClick={handleBaixar} disabled={loading}>Confirmar Baixa</Button>
+          </>
+        }
+      >
+        {baixandoPagamento && (
+          <div className="space-y-4">
+            <div className="bg-red-50 border border-red-100 rounded-lg p-3 text-sm">
+              <p className="text-slate-600 font-medium">{baixandoPagamento.descricao}</p>
+              <p className="text-2xl font-bold text-red-700 mt-1">
+                R$ {parseFloat(baixandoPagamento.valor).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              </p>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Conta Bancária *</label>
+              <select
+                className="input"
+                value={baixarForm.conta_bancaria}
+                onChange={e => setBaixarForm(p => ({ ...p, conta_bancaria: e.target.value }))}
+              >
+                <option value="SICOOB">SICOOB (Banco)</option>
+                <option value="CAIXA">CAIXA (Dinheiro)</option>
+                <option value="MAQUININHA">MAQUININHA (Cartão)</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Data do Pagamento *</label>
+              <input
+                type="date"
+                className="input"
+                value={baixarForm.data_pagamento}
+                onChange={e => setBaixarForm(p => ({ ...p, data_pagamento: e.target.value }))}
+              />
+            </div>
+          </div>
+        )}
       </Modal>
     </div>
   );

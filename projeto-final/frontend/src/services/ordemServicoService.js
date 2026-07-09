@@ -153,6 +153,11 @@ export const ordemServicoService = {
       const dataRec = pagamentoInfo.pago
         ? pagamentoInfo.data_recebimento || dataFechamento
         : null;
+      const contaBancaria =
+        pagamentoInfo.forma_recebimento === "Dinheiro" ? "CAIXA" :
+        pagamentoInfo.forma_recebimento === "Cartão de Crédito" ||
+        pagamentoInfo.forma_recebimento === "Cartão de Débito"  ? "MAQUININHA" :
+        "SICOOB";
 
       // Busca recebimento existente vinculado à OS
       const { data: recExistente } = await supabase
@@ -167,6 +172,7 @@ export const ordemServicoService = {
           .update({
             status: statusRec,
             forma_recebimento: pagamentoInfo.forma_recebimento || null,
+            conta_bancaria: contaBancaria,
             data_recebimento: dataRec,
           })
           .eq("id", recExistente.id);
@@ -179,10 +185,11 @@ export const ordemServicoService = {
           data: dataFechamento,
           valor: parseFloat(os.valor_final),
           tipo: "entrada",
-          descricao: `OS ${os.numero_os} – ${nomeCliente || "Cliente"}`,
+          descricao: `Ordem de Serviço ${os.numero_os}`,
           categoria: "OS",
           status: statusRec,
           forma_recebimento: pagamentoInfo.forma_recebimento || null,
+          conta_bancaria: contaBancaria,
           data_recebimento: dataRec,
           cliente_nome: nomeCliente,
           parcelas: 1,
