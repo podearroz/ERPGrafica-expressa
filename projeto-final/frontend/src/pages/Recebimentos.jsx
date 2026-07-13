@@ -15,6 +15,12 @@ const PAGE_SIZE = 10;
 // ─── Config ──────────────────────────────────────────────────────────────────
 const FORMAS = ['Dinheiro', 'PIX', 'Cartão de Crédito', 'Cartão de Débito', 'Boleto', 'Cheque', 'Transferência'];
 
+const formaParaConta = (forma) => {
+  if (forma === 'Dinheiro') return 'CAIXA';
+  if (forma === 'Cartão de Crédito' || forma === 'Cartão de Débito') return 'MAQUININHA';
+  return 'SICOOB'; // PIX, Boleto, Transferência, Cheque
+};
+
 const STATUS_CFG = {
   'Recebido':  { label: 'Recebido',  className: 'bg-green-100 text-green-700' },
   'Parcelado': { label: 'Parcelado', className: 'bg-blue-100 text-blue-700' },
@@ -60,6 +66,8 @@ const Recebimentos = () => {
     forma_recebimento: 'PIX',
     data_recebimento: new Date().toISOString().split('T')[0],
     observacao: '',
+    conta_bancaria: 'SICOOB',
+    desconto: '',
   });
 
   // Parcelado
@@ -159,10 +167,13 @@ const Recebimentos = () => {
   // ── Marcar Recebido ──────────────────────────────────────────────────────
   const abrirRecebido = (rec) => {
     setRecSelecionado(rec);
+    const forma = rec.forma_recebimento || 'PIX';
     setRecebidoForm({
-      forma_recebimento: rec.forma_recebimento || 'PIX',
+      forma_recebimento: forma,
       data_recebimento: new Date().toISOString().split('T')[0],
       observacao: '',
+      conta_bancaria: formaParaConta(forma),
+      desconto: '',
     });
     setShowRecebidoModal(true);
   };
@@ -400,19 +411,64 @@ const Recebimentos = () => {
         }>
         {recSelecionado && (
           <div className="space-y-4">
+            {/* Resumo do valor */}
             <div className="bg-green-50 border border-green-100 rounded-lg p-3 text-sm">
               <p className="text-slate-600">{recSelecionado.descricao}</p>
-              <p className="text-2xl font-bold text-green-700 mt-1">
-                R$ {parseFloat(recSelecionado.valor).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-              </p>
+              <div className="flex items-end justify-between mt-1">
+                <div>
+                  <p className="text-xs text-slate-400">Valor original</p>
+                  <p className="text-2xl font-bold text-green-700">
+                    R$ {parseFloat(recSelecionado.valor).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  </p>
+                </div>
+                {parseFloat(recebidoForm.desconto || 0) > 0 && (
+                  <div className="text-right">
+                    <p className="text-xs text-slate-400">Valor líquido</p>
+                    <p className="text-xl font-bold text-blue-700">
+                      R$ {Math.max(0, parseFloat(recSelecionado.valor) - parseFloat(recebidoForm.desconto)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    </p>
+                  </div>
+                )}
+              </div>
             </div>
+
+            {/* Forma de recebimento */}
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Forma de Recebimento *</label>
               <select className="input" value={recebidoForm.forma_recebimento}
-                onChange={e => setRecebidoForm(p => ({ ...p, forma_recebimento: e.target.value }))}>
+                onChange={e => {
+                  const forma = e.target.value;
+                  setRecebidoForm(p => ({ ...p, forma_recebimento: forma, conta_bancaria: formaParaConta(forma) }));
+                }}>
                 {FORMAS.map(f => <option key={f}>{f}</option>)}
               </select>
             </div>
+
+            {/* Conta bancária (auto preenchida, editável) */}
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Conta Bancária *</label>
+              <select className="input" value={recebidoForm.conta_bancaria}
+                onChange={e => setRecebidoForm(p => ({ ...p, conta_bancaria: e.target.value }))}>
+                <option value="SICOOB">SICOOB (Banco / PIX)</option>
+                <option value="CAIXA">CAIXA (Dinheiro físico)</option>
+                <option value="MAQUININHA">MAQUININHA (Cartão)</option>
+              </select>
+            </div>
+
+            {/* Desconto */}
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Desconto (R$)</label>
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                className="input"
+                value={recebidoForm.desconto}
+                onChange={e => setRecebidoForm(p => ({ ...p, desconto: e.target.value }))}
+                placeholder="0,00 — deixe em branco se não houver desconto"
+              />
+            </div>
+
             <Input label="Data do Recebimento *" type="date" value={recebidoForm.data_recebimento}
               onChange={e => setRecebidoForm(p => ({ ...p, data_recebimento: e.target.value }))} />
             <div>

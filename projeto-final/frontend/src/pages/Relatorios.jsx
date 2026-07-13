@@ -47,7 +47,14 @@ const Relatorios = () => {
 
   const [aba, setAba] = useState('resumo'); // 'resumo' | 'receber' | 'pagar' | 'extrato'
   const [contaFiltro, setContaFiltro] = useState('TODOS'); // 'TODOS' | 'CAIXA' | 'SICOOB' | 'MAQUININHA'
-  const [saldoAnterior, setSaldoAnterior] = useState('0');
+  const [saldoAnterior, setSaldoAnterior] = useState(
+    () => localStorage.getItem('extrato_saldo_anterior') || '0'
+  );
+
+  const handleSaldoAnterior = (v) => {
+    setSaldoAnterior(v);
+    localStorage.setItem('extrato_saldo_anterior', v);
+  };
   const [dateFrom, setDateFrom] = useState(primeiroDiaMes());
   const [dateTo, setDateTo] = useState(ultimoDiaMes());
 
@@ -99,7 +106,10 @@ const Relatorios = () => {
     .filter(p => p.data < today())
     .reduce((s, p) => s + parseFloat(p.valor || 0), 0);
 
-  const handlePrint = () => window.print();
+  const handlePrint = () => {
+    document.title = `Extrato - ${dateFrom} a ${dateTo}`;
+    window.print();
+  };
 
   // ── Extrato (entradas recebidas + saídas pagas) ───────────────────────────
   const movimentosExtrato = useMemo(() => {
@@ -163,7 +173,16 @@ const Relatorios = () => {
   ];
 
   return (
-    <div className="space-y-4 print:space-y-3">
+    <div className="space-y-4 print:space-y-2">
+      <style>{`
+        @media print {
+          @page { size: A4 portrait; margin: 1cm; }
+          body { font-size: 9px !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+          table { font-size: 9px !important; border-collapse: collapse; width: 100%; }
+          th, td { padding: 3px 6px !important; }
+          .print\\:hidden { display: none !important; }
+        }
+      `}</style>
       {/* Header com abas e filtros */}
       <Card>
         <div className="p-4 border-b border-slate-200">
@@ -484,10 +503,10 @@ const Relatorios = () => {
                 <input
                   type="text"
                   value={saldoAnterior}
-                  onChange={e => setSaldoAnterior(e.target.value)}
+                  onChange={e => handleSaldoAnterior(e.target.value)}
                   className="w-full text-xl font-bold text-slate-800 bg-transparent border-b border-dashed border-slate-300 focus:outline-none focus:border-blue-400"
                   placeholder="0,00"
-                  title="Saldo de abertura do período"
+                  title="Saldo de abertura do período — salvo automaticamente"
                 />
               </div>
             </div>

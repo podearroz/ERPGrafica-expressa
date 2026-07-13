@@ -32,14 +32,14 @@ const Pagamentos = () => {
     valor: '',
     tipo: 'saida',
     descricao: '',
-    categoria: '',
+    categoria: 'PGTO TRANSF B SICOOB',
     status: 'Pendente',
     conta_bancaria: 'SICOOB',
   });
 
   const headers = [
     { label: 'Data' },
-    { label: 'Descrição' },
+    { label: 'Nome do Cliente' },
     { label: 'Categoria' },
     { label: 'Conta' },
     { label: 'Valor' },
@@ -58,7 +58,7 @@ const Pagamentos = () => {
         valor: '',
         tipo: 'saida',
         descricao: '',
-        categoria: '',
+        categoria: 'PGTO TRANSF B SICOOB',
         status: 'Pendente',
         conta_bancaria: 'SICOOB',
       });
@@ -303,7 +303,7 @@ const Pagamentos = () => {
           />
 
           <Input
-            label="Descrição *"
+            label="Nome do Cliente *"
             value={formData.descricao}
             onChange={(e) => handleInputChange('descricao', e.target.value)}
             placeholder="Ex: Fornecedor XYZ"
@@ -313,7 +313,7 @@ const Pagamentos = () => {
             label="Categoria *"
             value={formData.categoria}
             onChange={(e) => handleInputChange('categoria', e.target.value)}
-            placeholder="Ex: Compra, Fornecedor, Despesa"
+            placeholder="Ex: PGTO TRANSF B SICOOB"
           />
 
           <div>

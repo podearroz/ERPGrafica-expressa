@@ -1,0 +1,31 @@
+# Configuração Railway/Nixpacks para suporte ao Puppeteer (Chromium headless)
+[phases.setup]
+nixPkgs = [
+  "nodejs_20",
+  "chromium",
+  "nss",
+  "nspr",
+  "freetype",
+  "harfbuzz",
+  "expat",
+  "fontconfig",
+  "glib",
+  "libX11",
+  "libXcomposite",
+  "libXdamage",
+  "libXext",
+  "libXfixes",
+  "libXrandr",
+  "libgbm",
+  "alsa-lib",
+  "cairo",
+  "pango",
+  "atk",
+  "cups",
+  "libdrm",
+  "gtk3",
+  "xorg.libxcb"
+]
+
+[variables]
+PUPPETEER_SKIP_CHROMIUM_DOWNLOAD = "false"

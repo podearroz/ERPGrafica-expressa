@@ -54,13 +54,25 @@ export const recebimentoService = {
     });
   },
 
-  async marcarRecebido(id, { forma_recebimento, data_recebimento, observacao }) {
-    return recebimentoService.update(id, {
+  async marcarRecebido(id, { forma_recebimento, data_recebimento, observacao, conta_bancaria, desconto }) {
+    const updates = {
       status: "Recebido",
       forma_recebimento,
       data_recebimento: data_recebimento || new Date().toISOString().split("T")[0],
-      observacao,
-    });
+      observacao: observacao || null,
+      conta_bancaria: conta_bancaria || null,
+    };
+
+    const descontoNum = parseFloat(desconto) || 0;
+    if (descontoNum > 0) {
+      const { data: rec } = await supabase.from("recebimentos").select("valor").eq("id", id).single();
+      const novoValor = Math.max(0, parseFloat(rec.valor) - descontoNum);
+      updates.valor = novoValor;
+      const obsDesconto = `Desconto: R$ ${descontoNum.toFixed(2)}`;
+      updates.observacao = updates.observacao ? `${obsDesconto} | ${updates.observacao}` : obsDesconto;
+    }
+
+    return recebimentoService.update(id, updates);
   },
 
   async marcarParcelado(id, { parcelas, forma_recebimento, data_primeira, observacao }) {
