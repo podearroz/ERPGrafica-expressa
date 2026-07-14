@@ -10,12 +10,13 @@ nixPkgs = [
   "expat",
   "fontconfig",
   "glib",
-  "libX11",
-  "libXcomposite",
-  "libXdamage",
-  "libXext",
-  "libXfixes",
-  "libXrandr",
+  "xorg.libX11",
+  "xorg.libXcomposite",
+  "xorg.libXdamage",
+  "xorg.libXext",
+  "xorg.libXfixes",
+  "xorg.libXrandr",
+  "xorg.libxcb",
   "libgbm",
   "alsa-lib",
   "cairo",
@@ -23,8 +24,7 @@ nixPkgs = [
   "atk",
   "cups",
   "libdrm",
-  "gtk3",
-  "xorg.libxcb"
+  "gtk3"
 ]
 
 [variables]
