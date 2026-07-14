@@ -4,6 +4,7 @@ dist/
 
 # Logs e arquivos temporários
 *.txt
+*.csv
 databases/
 
 # Arquivos fora do projeto
