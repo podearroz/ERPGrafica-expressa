@@ -4,7 +4,7 @@ export const vendaService = {
   async getAll() {
     const { data, error } = await supabase
       .from("vendas")
-      .select("*, cliente:clientes(id, nome, cpf_cnpj)")
+      .select("*, cliente:clientes(id, nome, cpf_cnpj), ordens_servico(numero_os)")
       .order("data", { ascending: false });
     if (error) throw error;
     return data;

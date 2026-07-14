@@ -44,7 +44,7 @@ export const recebimentoService = {
       data: venda.data || new Date().toISOString().split("T")[0],
       valor: parseFloat(venda.valor),
       tipo: "entrada",
-      descricao: `Venda – ${venda.produtos || "Produtos/Serviços"}`,
+      descricao: `${os?.numero_os ? os.numero_os + ' – ' : ''}Venda – ${venda.produtos || "Produtos/Serviços"}`,
       categoria: "Venda",
       status: "Não Pago",
       forma_recebimento: venda.forma_pagamento || null,

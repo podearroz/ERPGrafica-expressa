@@ -217,7 +217,8 @@ const Vendas = () => {
   const filteredVendas = vendas.filter(v => {
     if (!searchTerm) return true;
     const q = searchTerm.toLowerCase();
-    return getClienteNome(v).toLowerCase().includes(q) || (v.produtos || '').toLowerCase().includes(q);
+    const numeroOS = (v.ordens_servico?.[0]?.numero_os || '').toLowerCase();
+    return getClienteNome(v).toLowerCase().includes(q) || (v.produtos || '').toLowerCase().includes(q) || numeroOS.includes(q);
   });
   const pagedVendas = filteredVendas.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
   const handleSearch = (val) => { setSearchTerm(val); setCurrentPage(1); };
