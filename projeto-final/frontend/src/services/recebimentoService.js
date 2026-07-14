@@ -131,6 +131,51 @@ export const recebimentoService = {
     });
   },
 
+  async marcarParcialmentePago(id, { valor_pago, forma_recebimento, data_recebimento, conta_bancaria, observacao }) {
+    // Busca o original
+    const { data: original, error } = await supabase
+      .from("recebimentos")
+      .select("*")
+      .eq("id", id)
+      .single();
+    if (error) throw error;
+
+    const valorPago = parseFloat(valor_pago);
+    const valorRestante = parseFloat(original.valor) - valorPago;
+
+    if (valorPago <= 0 || valorPago >= parseFloat(original.valor)) {
+      throw new Error("O valor parcial deve ser maior que zero e menor que o total.");
+    }
+
+    // Atualiza o original com o valor pago
+    await recebimentoService.update(id, {
+      status: "Recebido",
+      valor: valorPago,
+      forma_recebimento,
+      data_recebimento: data_recebimento || new Date().toISOString().split("T")[0],
+      conta_bancaria: conta_bancaria || null,
+      observacao: observacao ? `Pagamento parcial | ${observacao}` : "Pagamento parcial",
+    });
+
+    // Cria novo recebimento para o saldo restante
+    const { error: insertError } = await supabase.from("recebimentos").insert([{
+      user_id: null,
+      venda_id: original.venda_id,
+      os_id: original.os_id,
+      data: original.data,
+      valor: valorRestante,
+      tipo: "entrada",
+      descricao: `${original.descricao} (saldo restante)`,
+      categoria: original.categoria,
+      status: "Não Pago",
+      forma_recebimento: null,
+      cliente_nome: original.cliente_nome,
+      parcelas: 1,
+      parcela_atual: 1,
+    }]);
+    if (insertError) throw insertError;
+  },
+
   async marcarNaoPago(id) {
     return recebimentoService.update(id, {
       status: "Não Pago",

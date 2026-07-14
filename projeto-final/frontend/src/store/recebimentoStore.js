@@ -113,6 +113,19 @@ const useRecebimentoStore = create((set, get) => ({
     }
   },
 
+  marcarParcialmentePago: async (id, dados) => {
+    set({ loading: true, error: null });
+    try {
+      await recebimentoService.marcarParcialmentePago(id, dados);
+      // Recarrega tudo pois criou novo recebimento (saldo restante)
+      const data = await recebimentoService.getAll();
+      set({ recebimentos: data, loading: false });
+    } catch (error) {
+      set({ error: error.message, loading: false });
+      throw error;
+    }
+  },
+
   marcarNaoPago: async (id) => {
     set({ loading: true, error: null });
     try {

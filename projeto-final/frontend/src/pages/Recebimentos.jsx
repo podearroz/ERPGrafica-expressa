@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Edit, Trash2, Save, CheckCircle, CreditCard, XCircle, RotateCcw, Search } from 'lucide-react';
+import { Plus, Edit, Trash2, Save, CheckCircle, CreditCard, XCircle, RotateCcw, Search, SplitSquareHorizontal } from 'lucide-react';
 import useRecebimentoStore from '@store/recebimentoStore';
 import useClienteStore from '@store/clienteStore';
 import Card from '@components/common/Card';
@@ -43,7 +43,7 @@ const Recebimentos = () => {
   const {
     recebimentos, loading, fetchRecebimentos,
     addRecebimento, updateRecebimento, deleteRecebimento,
-    marcarRecebido, marcarParcelado, marcarNaoPago,
+    marcarRecebido, marcarParcelado, marcarNaoPago, marcarParcialmentePago,
     getTotalRecebido, getTotalPendente,
   } = useRecebimentoStore();
 
@@ -69,6 +69,16 @@ const Recebimentos = () => {
     observacao: '',
     conta_bancaria: 'SICOOB',
     desconto: '',
+  });
+
+  // Parcial
+  const [showParcialModal, setShowParcialModal] = useState(false);
+  const [parcialForm, setParcialForm] = useState({
+    valor_pago: '',
+    forma_recebimento: 'PIX',
+    data_recebimento: new Date().toISOString().split('T')[0],
+    conta_bancaria: 'SICOOB',
+    observacao: '',
   });
 
   // Parcelado
@@ -189,6 +199,31 @@ const Recebimentos = () => {
       await marcarRecebido(recSelecionado.id, recebidoForm);
       toast.success('Recebimento confirmado!');
       setShowRecebidoModal(false);
+    } catch (e) { toast.error(e.message); }
+  };
+
+  // ── Marcar Parcialmente Pago ─────────────────────────────────────────────
+  const abrirParcial = (rec) => {
+    setRecSelecionado(rec);
+    setParcialForm({
+      valor_pago: '',
+      forma_recebimento: 'PIX',
+      data_recebimento: new Date().toISOString().split('T')[0],
+      conta_bancaria: 'SICOOB',
+      observacao: '',
+    });
+    setShowParcialModal(true);
+  };
+
+  const handleMarcarParcial = async () => {
+    const vPago = parseFloat(parcialForm.valor_pago);
+    const vTotal = parseFloat(recSelecionado.valor);
+    if (!vPago || vPago <= 0) { toast.error('Informe o valor recebido.'); return; }
+    if (vPago >= vTotal) { toast.error(`O valor parcial deve ser menor que R$ ${vTotal.toFixed(2)}. Use "Recebido" para pagamento integral.`); return; }
+    try {
+      await marcarParcialmentePago(recSelecionado.id, parcialForm);
+      toast.success(`Recebido R$ ${vPago.toFixed(2)}. Saldo restante de R$ ${(vTotal - vPago).toFixed(2)} lançado como pendente.`, { duration: 6000 });
+      setShowParcialModal(false);
     } catch (e) { toast.error(e.message); }
   };
 
@@ -354,6 +389,11 @@ const Recebimentos = () => {
                         <CreditCard className="w-3 h-3" /> Parcelar
                       </button>
                     )}
+                    <button onClick={() => abrirParcial(rec)}
+                      className="inline-flex items-center gap-1 px-2 py-1 text-xs rounded bg-orange-50 text-orange-700 hover:bg-orange-100 font-medium"
+                      title="Recebimento parcial">
+                      <SplitSquareHorizontal className="w-3 h-3" /> Parcial
+                    </button>
                   </>
                 )}
                 {rec.status === 'Recebido' && (
@@ -490,6 +530,67 @@ const Recebimentos = () => {
               <textarea className="input resize-none" rows={2} value={recebidoForm.observacao}
                 onChange={e => setRecebidoForm(p => ({ ...p, observacao: e.target.value }))}
                 placeholder="Ex: Depósito conta corrente..." />
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      {/* Modal: Recebimento Parcial */}
+      <Modal isOpen={showParcialModal} onClose={() => setShowParcialModal(false)}
+        title="Recebimento Parcial"
+        footer={
+          <><Button variant="secondary" onClick={() => setShowParcialModal(false)}>Cancelar</Button>
+          <Button icon={SplitSquareHorizontal} onClick={handleMarcarParcial} disabled={loading}>Confirmar Parcial</Button></>
+        }>
+        {recSelecionado && (
+          <div className="space-y-4">
+            <div className="bg-orange-50 border border-orange-100 rounded-lg p-3 text-sm">
+              <p className="text-slate-600">{recSelecionado.descricao}</p>
+              <p className="text-lg font-bold text-slate-800 mt-1">
+                Total: R$ {parseFloat(recSelecionado.valor).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              </p>
+            </div>
+            <Input
+              label="Valor Recebido (R$) *"
+              type="number"
+              step="0.01"
+              min="0.01"
+              max={parseFloat(recSelecionado.valor) - 0.01}
+              value={parcialForm.valor_pago}
+              onChange={e => setParcialForm(p => ({ ...p, valor_pago: e.target.value }))}
+              placeholder="0,00"
+            />
+            {parcialForm.valor_pago > 0 && parseFloat(parcialForm.valor_pago) < parseFloat(recSelecionado.valor) && (
+              <div className="bg-yellow-50 border border-yellow-100 rounded p-2 text-xs text-yellow-700">
+                Saldo restante a receber: <strong>R$ {(parseFloat(recSelecionado.valor) - parseFloat(parcialForm.valor_pago)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</strong> — será lançado automaticamente como pendente.
+              </div>
+            )}
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Forma de Recebimento *</label>
+              <select className="input" value={parcialForm.forma_recebimento}
+                onChange={e => {
+                  const forma = e.target.value;
+                  setParcialForm(p => ({ ...p, forma_recebimento: forma, conta_bancaria: formaParaConta(forma) }));
+                }}>
+                {FORMAS.map(f => <option key={f}>{f}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Conta Bancária *</label>
+              <select className="input" value={parcialForm.conta_bancaria}
+                onChange={e => setParcialForm(p => ({ ...p, conta_bancaria: e.target.value }))}>
+                <option value="SICOOB">SICOOB (Banco / PIX)</option>
+                <option value="CAIXA">CAIXA (Dinheiro físico)</option>
+                <option value="MAQUININHA">MAQUININHA (Cartão)</option>
+              </select>
+            </div>
+            <Input label="Data do Recebimento *" type="date" value={parcialForm.data_recebimento}
+              onChange={e => setParcialForm(p => ({ ...p, data_recebimento: e.target.value }))} />
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Observação</label>
+              <textarea className="input resize-none" rows={2} value={parcialForm.observacao}
+                onChange={e => setParcialForm(p => ({ ...p, observacao: e.target.value }))}
+                placeholder="Ex: Cliente pagou metade hoje..." />
             </div>
           </div>
         )}
