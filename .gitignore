@@ -1,5 +1,10 @@
 .history/
 node_modules/
+dist/
+
+# Logs e arquivos temporários
+*.txt
+databases/
 
 # Arquivos fora do projeto
 *.pdf
