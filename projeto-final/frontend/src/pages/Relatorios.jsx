@@ -1,9 +1,11 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { TrendingUp, TrendingDown, BarChart2, AlertCircle, CheckCircle, Clock, Printer, ArrowUpCircle, ArrowDownCircle } from 'lucide-react';
+import { TrendingUp, TrendingDown, BarChart2, AlertCircle, CheckCircle, Clock, Printer, ArrowUpCircle, ArrowDownCircle, Banknote } from 'lucide-react';
 import useVendaStore from '@store/vendaStore';
 import useRecebimentoStore from '@store/recebimentoStore';
 import usePagamentoStore from '@store/pagamentoStore';
 import Card from '@components/common/Card';
+import Modal from '@components/common/Modal';
+import Button from '@components/common/Button';
 
 const fmtMoney = (v) =>
   parseFloat(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -42,10 +44,41 @@ const BadgeStatus = ({ status }) => {
 // ─────────────────────────────────────────────────────────────────────────────
 const Relatorios = () => {
   const { getTotalVendas, vendas, fetchVendas } = useVendaStore();
-  const { recebimentos, getTotalEntradas, getTotalSaidas, getRecebimentosByCategoria, fetchRecebimentos } = useRecebimentoStore();
+  const { recebimentos, getTotalEntradas, getTotalSaidas, getRecebimentosByCategoria, fetchRecebimentos, marcarRecebido } = useRecebimentoStore();
   const { getTotalPagamentos, getPagamentosByCategoria, pagamentos, fetchPagamentos } = usePagamentoStore();
 
-  const [aba, setAba] = useState('resumo'); // 'resumo' | 'receber' | 'pagar' | 'extrato'
+  const [aba, setAba] = useState('resumo');
+
+  // ── Modal de baixa direto no Contas a Receber ──────────────────────────
+  const [showBaixaModal, setShowBaixaModal] = useState(false);
+  const [recSelecionado, setRecSelecionado] = useState(null);
+  const [baixaForm, setBaixaForm] = useState({
+    forma_recebimento: 'PIX',
+    conta_bancaria: 'SICOOB',
+    data_recebimento: new Date().toISOString().split('T')[0],
+    observacao: '',
+    desconto: '',
+  });
+
+  const formaParaConta = (f) => {
+    if (f === 'Dinheiro') return 'CAIXA';
+    if (f === 'Cartão de Crédito' || f === 'Cartão de Débito') return 'MAQUININHA';
+    return 'SICOOB';
+  };
+
+  const abrirBaixa = (rec) => {
+    setRecSelecionado(rec);
+    setBaixaForm({ forma_recebimento: 'PIX', conta_bancaria: 'SICOOB', data_recebimento: new Date().toISOString().split('T')[0], observacao: '', desconto: '' });
+    setShowBaixaModal(true);
+  };
+
+  const handleBaixar = async () => {
+    try {
+      await marcarRecebido(recSelecionado.id, baixaForm);
+      await fetchRecebimentos();
+      setShowBaixaModal(false);
+    } catch (e) { alert('Erro ao dar baixa: ' + e.message); }
+  };
   const [contaFiltro, setContaFiltro] = useState('TODOS'); // 'TODOS' | 'CAIXA' | 'SICOOB' | 'MAQUININHA'
   const [saldoAnterior, setSaldoAnterior] = useState(
     () => localStorage.getItem('extrato_saldo_anterior') || '0'
@@ -435,6 +468,7 @@ const Relatorios = () => {
                     <th className="px-4 py-3 text-center font-semibold">Parcela</th>
                     <th className="px-4 py-3 text-center font-semibold">Status</th>
                     <th className="px-4 py-3 text-right font-semibold">Valor</th>
+                    <th className="px-4 py-3 text-center font-semibold print:hidden">Ação</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -462,6 +496,15 @@ const Relatorios = () => {
                           <td className="px-4 py-3 text-right font-semibold text-green-700">
                             R$ {fmtMoney(r.valor)}
                           </td>
+                          <td className="px-4 py-3 text-center print:hidden">
+                            <button
+                              onClick={() => abrirBaixa(r)}
+                              className="inline-flex items-center gap-1 px-2 py-1 text-xs rounded bg-green-50 text-green-700 hover:bg-green-100 font-medium"
+                              title="Dar baixa"
+                            >
+                              <Banknote className="w-3 h-3" /> Baixar
+                            </button>
+                          </td>
                         </tr>
                       );
                     })
@@ -477,7 +520,7 @@ const Relatorios = () => {
                 {contasReceber.length > 0 && (
                   <tfoot className="bg-slate-50 border-t-2 border-slate-200">
                     <tr>
-                      <td colSpan={5} className="px-4 py-3 font-semibold text-slate-700 text-right">
+                      <td colSpan={6} className="px-4 py-3 font-semibold text-slate-700 text-right">
                         Total a Receber:
                       </td>
                       <td className="px-4 py-3 text-right font-bold text-green-700 text-base">
@@ -715,6 +758,55 @@ const Relatorios = () => {
             </div>
           </Card>
         </>
+      )}
+      {/* Modal: Baixar recebimento direto do relatório */}
+      {showBaixaModal && recSelecionado && (
+        <Modal
+          isOpen={showBaixaModal}
+          onClose={() => setShowBaixaModal(false)}
+          title="Confirmar Recebimento"
+          footer={
+            <>
+              <Button variant="secondary" onClick={() => setShowBaixaModal(false)}>Cancelar</Button>
+              <Button icon={Banknote} onClick={handleBaixar}>Confirmar</Button>
+            </>
+          }
+        >
+          <div className="space-y-4">
+            <div className="bg-green-50 border border-green-100 rounded-lg p-3 text-sm">
+              <p className="font-medium text-slate-800">{recSelecionado.cliente_nome || recSelecionado.venda?.cliente?.nome || '—'}</p>
+              <p className="text-slate-500 mt-0.5">{recSelecionado.descricao}</p>
+              <p className="text-2xl font-bold text-green-700 mt-1">R$ {fmtMoney(recSelecionado.valor)}</p>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Forma de Recebimento</label>
+              <select className="input" value={baixaForm.forma_recebimento}
+                onChange={e => { const f = e.target.value; setBaixaForm(p => ({ ...p, forma_recebimento: f, conta_bancaria: formaParaConta(f) })); }}>
+                {['Dinheiro','PIX','Cartão de Crédito','Cartão de Débito','Boleto','Cheque','Transferência'].map(f => <option key={f}>{f}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Conta Bancária</label>
+              <select className="input" value={baixaForm.conta_bancaria}
+                onChange={e => setBaixaForm(p => ({ ...p, conta_bancaria: e.target.value }))}>
+                <option value="SICOOB">SICOOB (Banco / PIX)</option>
+                <option value="CAIXA">CAIXA (Dinheiro físico)</option>
+                <option value="MAQUININHA">MAQUININHA (Cartão)</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Data do Recebimento</label>
+              <input type="date" className="input" value={baixaForm.data_recebimento}
+                onChange={e => setBaixaForm(p => ({ ...p, data_recebimento: e.target.value }))} />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Desconto (R$)</label>
+              <input type="number" step="0.01" min="0" className="input" value={baixaForm.desconto}
+                onChange={e => setBaixaForm(p => ({ ...p, desconto: e.target.value }))}
+                placeholder="0,00 — deixe em branco se não houver" />
+            </div>
+          </div>
+        </Modal>
       )}
     </div>
   );
