@@ -89,7 +89,13 @@ const Recebimentos = () => {
     observacao: '',
   });
 
-  useEffect(() => { fetchRecebimentos(); }, []);
+  useEffect(() => {
+    fetchRecebimentos();
+    const onVisible = () => { if (!document.hidden) fetchRecebimentos(); };
+    document.addEventListener('visibilitychange', onVisible);
+    const interval = setInterval(fetchRecebimentos, 60000);
+    return () => { document.removeEventListener('visibilitychange', onVisible); clearInterval(interval); };
+  }, []);
 
   const resetPage = () => setCurrentPage(1);
   const handleSearch = (v) => { setSearchTerm(v); resetPage(); };

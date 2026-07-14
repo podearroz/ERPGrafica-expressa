@@ -16,6 +16,10 @@ const Pagamentos = () => {
   
   useEffect(() => {
     fetchPagamentos();
+    const onVisible = () => { if (!document.hidden) fetchPagamentos(); };
+    document.addEventListener('visibilitychange', onVisible);
+    const interval = setInterval(fetchPagamentos, 60000);
+    return () => { document.removeEventListener('visibilitychange', onVisible); clearInterval(interval); };
   }, []);
   const [searchTerm, setSearchTerm] = useState('');
   const [dateFrom, setDateFrom] = useState('');

@@ -213,7 +213,13 @@ const OrdensServico = () => {
     observacao: '',
   });
 
-  useEffect(() => { fetchOrdensServico(); }, []);
+  useEffect(() => {
+    fetchOrdensServico();
+    const onVisible = () => { if (!document.hidden) fetchOrdensServico(); };
+    document.addEventListener('visibilitychange', onVisible);
+    const interval = setInterval(fetchOrdensServico, 60000);
+    return () => { document.removeEventListener('visibilitychange', onVisible); clearInterval(interval); };
+  }, []);
 
   const resetPage = () => setCurrentPage(1);
   const handleSearch = (v) => { setSearchTerm(v); resetPage(); };

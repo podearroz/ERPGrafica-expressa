@@ -88,13 +88,29 @@ const Relatorios = () => {
     setSaldoAnterior(v);
     localStorage.setItem('extrato_saldo_anterior', v);
   };
-  const [dateFrom, setDateFrom] = useState(primeiroDiaMes());
-  const [dateTo, setDateTo] = useState(ultimoDiaMes());
+  const [dateFrom, setDateFrom] = useState(today());
+  const [dateTo, setDateTo] = useState(today());
 
-  useEffect(() => {
+  const refreshAll = () => {
     fetchVendas();
     fetchRecebimentos();
     fetchPagamentos();
+  };
+
+  useEffect(() => {
+    refreshAll();
+
+    // Auto-refresh ao voltar para a aba
+    const onVisible = () => { if (!document.hidden) refreshAll(); };
+    document.addEventListener('visibilitychange', onVisible);
+
+    // Auto-refresh a cada 60 segundos
+    const interval = setInterval(refreshAll, 60000);
+
+    return () => {
+      document.removeEventListener('visibilitychange', onVisible);
+      clearInterval(interval);
+    };
   }, []);
 
   const totalVendas = getTotalVendas();

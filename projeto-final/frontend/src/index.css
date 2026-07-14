@@ -6,9 +6,19 @@
   * {
     @apply border-slate-200;
   }
-  
+
   body {
     @apply bg-slate-50 text-slate-900;
+  }
+
+  /* Remove setas e roleta do mouse em campos numéricos */
+  input[type=number]::-webkit-inner-spin-button,
+  input[type=number]::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  input[type=number] {
+    -moz-appearance: textfield;
   }
 }
 
