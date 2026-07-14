@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ClipboardList, CheckCircle, XCircle, FileText, Eye, Trash2, Printer, Search, DollarSign } from 'lucide-react';
+import { ClipboardList, CheckCircle, XCircle, FileText, Eye, Trash2, Printer, Search, DollarSign, Banknote } from 'lucide-react';
 
 const FORMAS_PAGAMENTO = ['Dinheiro', 'PIX', 'Cartão de Débito', 'Cartão de Crédito', 'Boleto', 'Cheque', 'Transferência'];
 import useOrdemServicoStore from '@store/ordemServicoStore';
@@ -203,6 +203,16 @@ const OrdensServico = () => {
   const [formaPagamento, setFormaPagamento] = useState('PIX');
   const [dataPagamento, setDataPagamento] = useState(new Date().toISOString().split('T')[0]);
 
+  // ── Baixar pagamento de OS já faturada ───────────────────────────────────
+  const [showBaixarModal, setShowBaixarModal] = useState(false);
+  const [recebimentoOS, setRecebimentoOS] = useState(null);
+  const [baixarForm, setBaixarForm] = useState({
+    forma_recebimento: 'PIX',
+    conta_bancaria: 'SICOOB',
+    data_recebimento: new Date().toISOString().split('T')[0],
+    observacao: '',
+  });
+
   useEffect(() => { fetchOrdensServico(); }, []);
 
   const resetPage = () => setCurrentPage(1);
@@ -250,6 +260,58 @@ const OrdensServico = () => {
     setOsSelecionada(os);
     setMotivoCancelamento('');
     setShowCancelarModal(true);
+  };
+
+  const formaParaConta = (forma) => {
+    if (forma === 'Dinheiro') return 'CAIXA';
+    if (forma === 'Cartão de Crédito' || forma === 'Cartão de Débito') return 'MAQUININHA';
+    return 'SICOOB';
+  };
+
+  const abrirBaixar = async (os) => {
+    setOsSelecionada(os);
+    const { data: rec } = await supabase
+      .from('recebimentos')
+      .select('*')
+      .eq('os_id', os.id)
+      .maybeSingle();
+
+    if (!rec) {
+      toast.error('Nenhum recebimento vinculado a esta OS.');
+      return;
+    }
+    if (rec.status === 'Recebido') {
+      toast(`Esta OS já foi baixada como Recebida em ${rec.data_recebimento ? new Date(rec.data_recebimento + 'T00:00:00').toLocaleDateString('pt-BR') : '(sem data)'} — ${rec.forma_recebimento || ''}.`, { icon: '✅' });
+      return;
+    }
+    setRecebimentoOS(rec);
+    setBaixarForm({
+      forma_recebimento: 'PIX',
+      conta_bancaria: 'SICOOB',
+      data_recebimento: new Date().toISOString().split('T')[0],
+      observacao: '',
+    });
+    setShowBaixarModal(true);
+  };
+
+  const handleBaixar = async () => {
+    if (!recebimentoOS) return;
+    try {
+      await supabase
+        .from('recebimentos')
+        .update({
+          status: 'Recebido',
+          forma_recebimento: baixarForm.forma_recebimento,
+          conta_bancaria: baixarForm.conta_bancaria,
+          data_recebimento: baixarForm.data_recebimento || new Date().toISOString().split('T')[0],
+          observacao: baixarForm.observacao || null,
+        })
+        .eq('id', recebimentoOS.id);
+      toast.success(`Recebimento de R$ ${parseFloat(recebimentoOS.valor).toFixed(2).replace('.', ',')} baixado com sucesso!`);
+      setShowBaixarModal(false);
+    } catch (e) {
+      toast.error('Erro ao baixar recebimento: ' + e.message);
+    }
   };
 
   const handleFaturar = async () => {
@@ -428,6 +490,11 @@ const OrdensServico = () => {
                         <XCircle className="w-4 h-4" />
                       </button>
                     </>
+                  )}
+                  {(os.status === 'FATURADA' || os.status === 'FATURADA_SEM_NF') && (
+                    <button onClick={() => abrirBaixar(os)} className="text-green-600 hover:text-green-700" title="Baixar pagamento">
+                      <Banknote className="w-4 h-4" />
+                    </button>
                   )}
                   {os.status === 'CANCELADA' && (
                     <button onClick={() => handleDelete(os.id)} className="text-red-400 hover:text-red-600" title="Excluir">
@@ -720,6 +787,61 @@ const OrdensServico = () => {
             </p>
           </div>
         </div>
+      </Modal>
+
+      {/* Modal: Baixar Pagamento de OS Faturada */}
+      <Modal
+        isOpen={showBaixarModal}
+        onClose={() => setShowBaixarModal(false)}
+        title={`Baixar Pagamento — OS ${osSelecionada?.numero_os}`}
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setShowBaixarModal(false)}>Cancelar</Button>
+            <Button icon={Banknote} onClick={handleBaixar}>Confirmar Recebimento</Button>
+          </>
+        }
+      >
+        {recebimentoOS && (
+          <div className="space-y-4">
+            <div className="bg-green-50 border border-green-100 rounded-lg p-3 text-sm">
+              <p className="text-slate-600">{recebimentoOS.descricao}</p>
+              <p className="text-2xl font-bold text-green-700 mt-1">
+                R$ {parseFloat(recebimentoOS.valor).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              </p>
+              <p className="text-xs text-slate-400 mt-1">Cliente: {recebimentoOS.cliente_nome || osSelecionada?.cliente_nome || '—'}</p>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Forma de Recebimento *</label>
+              <select className="input" value={baixarForm.forma_recebimento}
+                onChange={e => {
+                  const forma = e.target.value;
+                  setBaixarForm(p => ({ ...p, forma_recebimento: forma, conta_bancaria: formaParaConta(forma) }));
+                }}>
+                {FORMAS_PAGAMENTO.map(f => <option key={f}>{f}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Conta Bancária *</label>
+              <select className="input" value={baixarForm.conta_bancaria}
+                onChange={e => setBaixarForm(p => ({ ...p, conta_bancaria: e.target.value }))}>
+                <option value="SICOOB">SICOOB (Banco / PIX)</option>
+                <option value="CAIXA">CAIXA (Dinheiro físico)</option>
+                <option value="MAQUININHA">MAQUININHA (Cartão)</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Data do Recebimento *</label>
+              <input type="date" className="input" value={baixarForm.data_recebimento}
+                onChange={e => setBaixarForm(p => ({ ...p, data_recebimento: e.target.value }))} />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Observação</label>
+              <textarea className="input resize-none" rows={2} value={baixarForm.observacao}
+                onChange={e => setBaixarForm(p => ({ ...p, observacao: e.target.value }))}
+                placeholder="Ex: Pago via PIX..." />
+            </div>
+          </div>
+        )}
       </Modal>
     </div>
   );
