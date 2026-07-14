@@ -35,7 +35,7 @@ const BadgeStatus = ({ status }) => {
 const FORM_VAZIO = {
   data: new Date().toISOString().split('T')[0],
   valor: '', tipo: 'entrada', descricao: '', categoria: 'Venda', status: 'Não Pago',
-  data_recebimento: '',
+  data_recebimento: '', cliente_nome: '',
 };
 
 // ─── Página ───────────────────────────────────────────────────────────────────
@@ -142,7 +142,7 @@ const Recebimentos = () => {
       setFormData({
         data: rec.data, valor: rec.valor, tipo: rec.tipo,
         descricao: rec.descricao, categoria: rec.categoria, status: rec.status,
-        data_recebimento: rec.data_recebimento || '',
+        data_recebimento: rec.data_recebimento || '', cliente_nome: rec.cliente_nome || '',
       });
     } else {
       setEditingRec(null);
@@ -160,6 +160,7 @@ const Recebimentos = () => {
         ...formData,
         valor: parseFloat(formData.valor),
         data_recebimento: formData.data_recebimento || null,
+        cliente_nome: formData.cliente_nome || null,
       };
       if (editingRec) {
         await updateRecebimento(editingRec.id, payload);
@@ -436,6 +437,7 @@ const Recebimentos = () => {
         }>
         <div className="space-y-4">
           <Input label="Data *" type="date" value={formData.data} onChange={e => setFormData(p => ({ ...p, data: e.target.value }))} />
+          <Input label="Cliente" value={formData.cliente_nome} onChange={e => setFormData(p => ({ ...p, cliente_nome: e.target.value }))} placeholder="Nome do cliente" />
           <Input label="Descrição *" value={formData.descricao} onChange={e => setFormData(p => ({ ...p, descricao: e.target.value }))} placeholder="Ex: Pagamento de cliente" />
           <Input label="Categoria *" value={formData.categoria} onChange={e => setFormData(p => ({ ...p, categoria: e.target.value }))} placeholder="Ex: Venda, Serviço" />
           <div>
