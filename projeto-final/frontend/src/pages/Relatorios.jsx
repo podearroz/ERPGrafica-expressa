@@ -116,14 +116,15 @@ const Relatorios = () => {
     const entradas = recebimentos
       .filter(r => r.status === 'Recebido')
       .filter(r => {
-        if (dateFrom && r.data < dateFrom) return false;
-        if (dateTo && r.data > dateTo) return false;
+        const dataEfetiva = r.data_recebimento || r.data;
+        if (dateFrom && dataEfetiva < dateFrom) return false;
+        if (dateTo && dataEfetiva > dateTo) return false;
         if (contaFiltro !== 'TODOS' && (r.conta_bancaria || 'CAIXA') !== contaFiltro) return false;
         return true;
       })
       .map(r => ({
         id: r.id,
-        data: r.data,
+        data: r.data_recebimento || r.data,
         lancamento: r.descricao,
         cliente: r.cliente_nome || r.venda?.cliente?.nome || '—',
         conta: r.conta_bancaria || 'CAIXA',

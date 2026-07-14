@@ -35,6 +35,7 @@ const BadgeStatus = ({ status }) => {
 const FORM_VAZIO = {
   data: new Date().toISOString().split('T')[0],
   valor: '', tipo: 'entrada', descricao: '', categoria: 'Venda', status: 'Não Pago',
+  data_recebimento: '',
 };
 
 // ─── Página ───────────────────────────────────────────────────────────────────
@@ -131,6 +132,7 @@ const Recebimentos = () => {
       setFormData({
         data: rec.data, valor: rec.valor, tipo: rec.tipo,
         descricao: rec.descricao, categoria: rec.categoria, status: rec.status,
+        data_recebimento: rec.data_recebimento || '',
       });
     } else {
       setEditingRec(null);
@@ -144,7 +146,11 @@ const Recebimentos = () => {
       toast.error('Preencha todos os campos obrigatórios!'); return;
     }
     try {
-      const payload = { ...formData, valor: parseFloat(formData.valor) };
+      const payload = {
+        ...formData,
+        valor: parseFloat(formData.valor),
+        data_recebimento: formData.data_recebimento || null,
+      };
       if (editingRec) {
         await updateRecebimento(editingRec.id, payload);
         toast.success('Recebimento atualizado!');
@@ -398,6 +404,14 @@ const Recebimentos = () => {
               <option>Não Pago</option><option>Parcelado</option><option>Recebido</option>
             </select>
           </div>
+          {formData.status === 'Recebido' && (
+            <Input
+              label="Data do Recebimento"
+              type="date"
+              value={formData.data_recebimento}
+              onChange={e => setFormData(p => ({ ...p, data_recebimento: e.target.value }))}
+            />
+          )}
           <Input label="Valor (R$) *" type="number" step="0.01" value={formData.valor} onChange={e => setFormData(p => ({ ...p, valor: e.target.value }))} placeholder="0.00" />
         </div>
       </Modal>
