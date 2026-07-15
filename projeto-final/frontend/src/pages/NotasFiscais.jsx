@@ -306,19 +306,41 @@ const ModalEmitirNFe = ({ nota, onClose, onSucesso }) => {
     if (cep.length !== 8) return;
     setBuscandoCep(true);
     try {
+      // Tenta ViaCEP primeiro
+      let logradouro, bairro, municipio, uf, ibge;
       const res = await fetch(`https://viacep.com.br/ws/${cep}/json/`);
       const data = await res.json();
-      if (data.erro) { toast.error('CEP não encontrado.'); return; }
+      if (!data.erro) {
+        logradouro = data.logradouro;
+        bairro     = data.bairro;
+        municipio  = data.localidade;
+        uf         = data.uf;
+        ibge       = data.ibge;
+      } else {
+        // Fallback: BrasilAPI
+        const res2 = await fetch(`https://brasilapi.com.br/api/cep/v2/${cep}`);
+        if (res2.ok) {
+          const data2 = await res2.json();
+          logradouro = data2.street;
+          bairro     = data2.neighborhood;
+          municipio  = data2.city;
+          uf         = data2.state;
+          ibge       = data2.city_ibge;
+        } else {
+          toast.error('CEP não encontrado. Preencha o endereço manualmente.');
+          return;
+        }
+      }
       setDest(p => ({
         ...p,
-        logradouro:       data.logradouro || p.logradouro,
-        bairro:           data.bairro     || p.bairro,
-        municipio:        data.localidade || p.municipio,
-        uf:               data.uf         || p.uf,
-        codigo_municipio: data.ibge       || p.codigo_municipio,
+        logradouro:       logradouro || p.logradouro,
+        bairro:           bairro     || p.bairro,
+        municipio:        municipio  || p.municipio,
+        uf:               uf         || p.uf,
+        codigo_municipio: ibge       || p.codigo_municipio,
       }));
     } catch {
-      toast.error('Erro ao consultar CEP. Preencha o código IBGE manualmente.');
+      toast.error('Erro ao consultar CEP. Preencha o endereço manualmente.');
     } finally {
       setBuscandoCep(false);
     }
