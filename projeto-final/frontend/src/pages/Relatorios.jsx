@@ -15,16 +15,34 @@ const fmtDate = (d) =>
 
 const today = () => new Date().toISOString().split('T')[0];
 
-// ── Primeiro e último dia do mês atual
-const primeiroDiaMes = () => {
+const primeiroDiaMes = (offset = 0) => {
   const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`;
+  return `${d.getFullYear()}-${String(d.getMonth() + 1 + offset).padStart(2, '0')}-01`;
 };
-const ultimoDiaMes = () => {
+const ultimoDiaMes = (offset = 0) => {
   const d = new Date();
-  const last = new Date(d.getFullYear(), d.getMonth() + 1, 0);
+  const last = new Date(d.getFullYear(), d.getMonth() + 1 + offset, 0);
   return last.toISOString().split('T')[0];
 };
+
+// Botões de atalho de período
+const AtalhoPeriodo = ({ onSelect }) => (
+  <div className="flex gap-1">
+    {[
+      { label: 'Hoje',       from: today(),          to: today() },
+      { label: 'Mês atual',  from: primeiroDiaMes(),  to: ultimoDiaMes() },
+      { label: 'Mês ant.',   from: primeiroDiaMes(-1), to: ultimoDiaMes(-1) },
+    ].map(p => (
+      <button
+        key={p.label}
+        onClick={() => onSelect(p.from, p.to)}
+        className="px-2 py-1 text-xs rounded border border-slate-300 text-slate-600 hover:bg-slate-100 whitespace-nowrap"
+      >
+        {p.label}
+      </button>
+    ))}
+  </div>
+);
 
 const BadgeStatus = ({ status }) => {
   const cfg = {
@@ -47,7 +65,7 @@ const Relatorios = () => {
   const { recebimentos, getTotalEntradas, getTotalSaidas, getRecebimentosByCategoria, fetchRecebimentos, marcarRecebido } = useRecebimentoStore();
   const { getTotalPagamentos, getPagamentosByCategoria, pagamentos, fetchPagamentos } = usePagamentoStore();
 
-  const [aba, setAba] = useState('resumo');
+  const [aba, setAba] = useState('recebidas');
 
   // ── Modal de baixa direto no Contas a Receber ──────────────────────────
   const [showBaixaModal, setShowBaixaModal] = useState(false);
@@ -79,17 +97,20 @@ const Relatorios = () => {
       setShowBaixaModal(false);
     } catch (e) { alert('Erro ao dar baixa: ' + e.message); }
   };
-  const [contaFiltro, setContaFiltro] = useState('TODOS'); // 'TODOS' | 'CAIXA' | 'SICOOB' | 'MAQUININHA'
+  const [contaFiltro, setContaFiltro] = useState('TODOS');
   const [saldoAnterior, setSaldoAnterior] = useState(
     () => localStorage.getItem('extrato_saldo_anterior') || '0'
   );
-
   const handleSaldoAnterior = (v) => {
     setSaldoAnterior(v);
     localStorage.setItem('extrato_saldo_anterior', v);
   };
-  const [dateFrom, setDateFrom] = useState(today());
-  const [dateTo, setDateTo] = useState(today());
+
+  // Cada aba tem seu próprio período — padrão: mês atual
+  const [dateFrom, setDateFrom] = useState(primeiroDiaMes());
+  const [dateTo,   setDateTo]   = useState(ultimoDiaMes());
+
+  const setPeriodo = (from, to) => { setDateFrom(from); setDateTo(to); };
 
   const refreshAll = () => {
     fetchVendas();
@@ -120,20 +141,38 @@ const Relatorios = () => {
   const recebimentosPorCategoria = getRecebimentosByCategoria();
   const pagamentosPorCategoria = getPagamentosByCategoria();
 
-  // ── Contas a Receber filtradas pelo período ────────────────────────────────
+  // ── Contas Recebidas (já baixadas) filtradas pelo período ─────────────────
+  const contasRecebidas = useMemo(() => {
+    return recebimentos
+      .filter(r => r.status === 'Recebido')
+      .filter(r => {
+        const dataEf = r.data_recebimento || r.data;
+        if (dateFrom && dataEf < dateFrom) return false;
+        if (dateTo   && dataEf > dateTo)   return false;
+        return true;
+      })
+      .sort((a, b) => {
+        const da = a.data_recebimento || a.data || '';
+        const db = b.data_recebimento || b.data || '';
+        return da.localeCompare(db);
+      });
+  }, [recebimentos, dateFrom, dateTo]);
+  const totalRecebido = contasRecebidas.reduce((s, r) => s + parseFloat(r.valor || 0), 0);
+
+  // ── Contas a Receber (pendentes) filtradas por vencimento ─────────────────
   const contasReceber = useMemo(() => {
     return recebimentos
       .filter(r => r.tipo === 'entrada' || !r.tipo)
       .filter(r => r.status !== 'Recebido')
       .filter(r => {
         if (dateFrom && r.data < dateFrom) return false;
-        if (dateTo && r.data > dateTo) return false;
+        if (dateTo   && r.data > dateTo)   return false;
         return true;
       })
       .sort((a, b) => (a.data || '').localeCompare(b.data || ''));
   }, [recebimentos, dateFrom, dateTo]);
 
-  const totalReceber = contasReceber.reduce((s, r) => s + parseFloat(r.valor || 0), 0);
+  const totalReceber    = contasReceber.reduce((s, r) => s + parseFloat(r.valor || 0), 0);
   const totalVencidoRec = contasReceber
     .filter(r => r.data < today())
     .reduce((s, r) => s + parseFloat(r.valor || 0), 0);
@@ -216,10 +255,11 @@ const Relatorios = () => {
   };
 
   const abas = [
-    { key: 'resumo',  label: 'Resumo Geral' },
-    { key: 'receber', label: `Contas a Receber (${contasReceber.length})` },
-    { key: 'pagar',   label: `Contas a Pagar (${contasPagar.length})` },
-    { key: 'extrato', label: 'Extrato / Caixa' },
+    { key: 'recebidas', label: `Contas Recebidas (${contasRecebidas.length})` },
+    { key: 'receber',   label: `Contas a Receber (${contasReceber.length})` },
+    { key: 'pagar',     label: `Pagamento de Contas (${contasPagar.length})` },
+    { key: 'extrato',   label: 'Extrato / Caixa' },
+    { key: 'resumo',    label: 'Resumo Geral' },
   ];
 
   return (
@@ -267,20 +307,24 @@ const Relatorios = () => {
                   {CONTAS.map(c => <option key={c} value={c}>{c === 'TODOS' ? 'Todas as contas' : c}</option>)}
                 </select>
               )}
-              <label className="text-sm text-slate-600">Período:</label>
-              <input
-                type="date"
-                value={dateFrom}
-                onChange={e => setDateFrom(e.target.value)}
-                className="py-1.5 px-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-              <span className="text-slate-400 text-sm">até</span>
-              <input
-                type="date"
-                value={dateTo}
-                onChange={e => setDateTo(e.target.value)}
-                className="py-1.5 px-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
+              {aba !== 'resumo' && <AtalhoPeriodo onSelect={setPeriodo} />}
+              {aba !== 'resumo' && (
+                <>
+                  <input
+                    type="date"
+                    value={dateFrom}
+                    onChange={e => setDateFrom(e.target.value)}
+                    className="py-1.5 px-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                  <span className="text-slate-400 text-sm">até</span>
+                  <input
+                    type="date"
+                    value={dateTo}
+                    onChange={e => setDateTo(e.target.value)}
+                    className="py-1.5 px-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </>
+              )}
               <button
                 onClick={handlePrint}
                 className="flex items-center gap-1 px-3 py-1.5 text-sm border border-slate-300 rounded-lg hover:bg-slate-50 text-slate-600"
@@ -291,6 +335,101 @@ const Relatorios = () => {
           </div>
         </div>
       </Card>
+
+      {/* ── ABA: CONTAS RECEBIDAS ────────────────────────────────────────── */}
+      {aba === 'recebidas' && (
+        <>
+          <div className="grid grid-cols-3 gap-4">
+            <div className="bg-green-50 border border-green-200 rounded-xl p-4">
+              <p className="text-sm text-green-700 font-medium flex items-center gap-1">
+                <CheckCircle className="w-4 h-4" /> Total Recebido no Período
+              </p>
+              <p className="text-2xl font-bold text-green-700 mt-1">R$ {fmtMoney(totalRecebido)}</p>
+              <p className="text-xs text-green-500 mt-1">{contasRecebidas.length} lançamento(s)</p>
+            </div>
+            <div className="bg-slate-50 border border-slate-200 rounded-xl p-4">
+              <p className="text-sm text-slate-500 font-medium">Período</p>
+              <p className="text-base font-semibold text-slate-700 mt-1">
+                {fmtDate(dateFrom)} até {fmtDate(dateTo)}
+              </p>
+            </div>
+            <div className="bg-blue-50 border border-blue-100 rounded-xl p-4">
+              <p className="text-sm text-blue-600 font-medium">Ticket Médio</p>
+              <p className="text-2xl font-bold text-blue-700 mt-1">
+                R$ {fmtMoney(contasRecebidas.length > 0 ? totalRecebido / contasRecebidas.length : 0)}
+              </p>
+              <p className="text-xs text-blue-400 mt-1">por recebimento</p>
+            </div>
+          </div>
+
+          <Card>
+            <div className="p-4 border-b border-slate-100">
+              <h3 className="font-semibold text-slate-700">
+                Contas Recebidas — {fmtDate(dateFrom)} até {fmtDate(dateTo)}
+              </h3>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-slate-50 text-slate-600">
+                  <tr>
+                    <th className="px-4 py-3 text-left font-semibold">Data Recebimento</th>
+                    <th className="px-4 py-3 text-left font-semibold">Cliente</th>
+                    <th className="px-4 py-3 text-left font-semibold">Descrição</th>
+                    <th className="px-4 py-3 text-center font-semibold">Forma</th>
+                    <th className="px-4 py-3 text-center font-semibold">Conta</th>
+                    <th className="px-4 py-3 text-right font-semibold">Valor</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {contasRecebidas.length > 0 ? contasRecebidas.map(r => (
+                    <tr key={r.id} className="border-t hover:bg-slate-50">
+                      <td className="px-4 py-3 text-slate-600 whitespace-nowrap">
+                        {fmtDate(r.data_recebimento || r.data)}
+                      </td>
+                      <td className="px-4 py-3 text-slate-800 font-medium">
+                        {r.cliente_nome || r.venda?.cliente?.nome || '—'}
+                      </td>
+                      <td className="px-4 py-3 text-slate-600 max-w-xs truncate" title={r.descricao}>
+                        {r.descricao}
+                      </td>
+                      <td className="px-4 py-3 text-center text-slate-500 text-xs">
+                        {r.forma_recebimento || '—'}
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${CONTA_CORES[r.conta_bancaria] || 'bg-slate-100 text-slate-600'}`}>
+                          {r.conta_bancaria || '—'}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-right font-bold text-green-700">
+                        R$ {fmtMoney(r.valor)}
+                      </td>
+                    </tr>
+                  )) : (
+                    <tr>
+                      <td colSpan={6} className="px-4 py-10 text-center text-slate-400">
+                        <CheckCircle className="w-8 h-8 mx-auto mb-2 opacity-40" />
+                        Nenhum recebimento no período selecionado
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+                {contasRecebidas.length > 0 && (
+                  <tfoot className="bg-green-50 border-t-2 border-green-200">
+                    <tr>
+                      <td colSpan={5} className="px-4 py-3 font-semibold text-slate-700 text-right">
+                        Total Recebido:
+                      </td>
+                      <td className="px-4 py-3 text-right font-bold text-green-700 text-base">
+                        R$ {fmtMoney(totalRecebido)}
+                      </td>
+                    </tr>
+                  </tfoot>
+                )}
+              </table>
+            </div>
+          </Card>
+        </>
+      )}
 
       {/* ── ABA: RESUMO GERAL ─────────────────────────────────────────────── */}
       {aba === 'resumo' && (
@@ -712,7 +851,7 @@ const Relatorios = () => {
           <Card>
             <div className="p-4 border-b border-slate-100">
               <h3 className="font-semibold text-slate-700">
-                Contas a Pagar — {dateFrom ? fmtDate(dateFrom) : '...'} até {dateTo ? fmtDate(dateTo) : '...'}
+                Pagamento de Contas — {dateFrom ? fmtDate(dateFrom) : '...'} até {dateTo ? fmtDate(dateTo) : '...'}
               </h3>
             </div>
             <div className="overflow-x-auto">
