@@ -301,13 +301,26 @@ const ModalEmitirNFe = ({ nota, onClose, onSucesso }) => {
   const setI = (f, v) => setIdent(p => ({ ...p, [f]: v }));
   const setD = (f, v) => setDest(p => ({ ...p, [f]: v }));
 
+  const buscarCodigoIBGE = async (cidade, estado) => {
+    try {
+      const res = await fetch(`https://servicodados.ibge.gov.br/api/v1/localidades/municipios?nome=${encodeURIComponent(cidade)}`);
+      if (!res.ok) return '';
+      const lista = await res.json();
+      const match = lista.find(m => m.UF?.sigla?.toUpperCase() === estado?.toUpperCase());
+      return match ? String(match.id) : (lista[0] ? String(lista[0].id) : '');
+    } catch {
+      return '';
+    }
+  };
+
   const buscarCep = async (cepRaw) => {
     const cep = cepRaw.replace(/\D/g, '');
     if (cep.length !== 8) return;
     setBuscandoCep(true);
     try {
-      // Tenta ViaCEP primeiro
       let logradouro, bairro, municipio, uf, ibge;
+
+      // 1) Tenta ViaCEP (já retorna ibge diretamente)
       const res = await fetch(`https://viacep.com.br/ws/${cep}/json/`);
       const data = await res.json();
       if (!data.erro) {
@@ -317,20 +330,25 @@ const ModalEmitirNFe = ({ nota, onClose, onSucesso }) => {
         uf         = data.uf;
         ibge       = data.ibge;
       } else {
-        // Fallback: BrasilAPI
-        const res2 = await fetch(`https://brasilapi.com.br/api/cep/v2/${cep}`);
-        if (res2.ok) {
-          const data2 = await res2.json();
-          logradouro = data2.street;
-          bairro     = data2.neighborhood;
-          municipio  = data2.city;
-          uf         = data2.state;
-          ibge       = data2.city_ibge;
-        } else {
+        // 2) Fallback: BrasilAPI v1
+        const res2 = await fetch(`https://brasilapi.com.br/api/cep/v1/${cep}`);
+        if (!res2.ok) {
           toast.error('CEP não encontrado. Preencha o endereço manualmente.');
           return;
         }
+        const data2 = await res2.json();
+        logradouro = data2.street;
+        bairro     = data2.neighborhood;
+        municipio  = data2.city;
+        uf         = data2.state;
+        // BrasilAPI não retorna ibge — busca separadamente
       }
+
+      // 3) Se ainda não tem ibge, busca pela API do IBGE
+      if (!ibge && municipio) {
+        ibge = await buscarCodigoIBGE(municipio, uf);
+      }
+
       setDest(p => ({
         ...p,
         logradouro:       logradouro || p.logradouro,
@@ -339,6 +357,8 @@ const ModalEmitirNFe = ({ nota, onClose, onSucesso }) => {
         uf:               uf         || p.uf,
         codigo_municipio: ibge       || p.codigo_municipio,
       }));
+
+      if (!ibge) toast.warn('Código IBGE não encontrado automaticamente. Verifique o campo manualmente.');
     } catch {
       toast.error('Erro ao consultar CEP. Preencha o endereço manualmente.');
     } finally {
