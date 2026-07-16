@@ -36,7 +36,7 @@ export function gerarChaveAcesso({ cUF, aamm, cnpj, serie, nNF, cNF }) {
 function fmt2(n) { return parseFloat(n || 0).toFixed(2); }
 function fmt4(n) { return parseFloat(n || 0).toFixed(4); }
 
-export function buildNFeXml({ numero, serie = 1, naturezaOperacao = 'Venda de producao do estabelecimento', destinatario, itens, formaPagamento = '01' }) {
+export function buildNFeXml({ numero, serie = 1, naturezaOperacao = 'Venda de producao do estabelecimento', destinatario, itens, formaPagamento = '01', observacoes = '' }) {
   // tpAmb obrigatoriamente via variável de ambiente
   const tpAmb = process.env.NODE_ENV === 'producao' ? '1' : '2';
   const cUF   = String(process.env.SEFAZ_CODIGO_UF || '11');
@@ -225,8 +225,9 @@ export function buildNFeXml({ numero, serie = 1, naturezaOperacao = 'Venda de pr
           },
         },
         infAdic: {
-          infCpl: 'EMPRESA OPTANTE PELO SIMPLES NACIONAL. ' +
-                  `PIX/CNPJ: ${cnpj.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5')}`,
+          infCpl: observacoes
+            ? observacoes.replace(/[\r\n]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 5000)
+            : `EMPRESA OPTANTE PELO SIMPLES NACIONAL. PIX/CNPJ: ${cnpj.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5')}`,
         },
       },
     },
