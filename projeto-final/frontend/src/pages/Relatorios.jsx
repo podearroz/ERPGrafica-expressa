@@ -267,10 +267,82 @@ const Relatorios = () => {
       <style>{`
         @media print {
           @page { size: A4 portrait; margin: 1cm; }
-          body { font-size: 9px !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-          table { font-size: 9px !important; border-collapse: collapse; width: 100%; }
-          th, td { padding: 3px 6px !important; }
-          .print\\:hidden { display: none !important; }
+
+          /* Esconde elementos de interface */
+          .print-hidden, .print\\:hidden { display: none !important; }
+
+          /* Corpo */
+          body { font-size: 8px !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+
+          /* Remove scroll lateral — garante que tabela caiba na página */
+          .overflow-x-auto { overflow: visible !important; }
+
+          /* Tabela: layout fixo, sem quebra de linha nas células */
+          table {
+            font-size: 8px !important;
+            border-collapse: collapse !important;
+            width: 100% !important;
+            table-layout: fixed !important;
+          }
+          th {
+            font-size: 8px !important;
+            padding: 3px 4px !important;
+            background: #f1f5f9 !important;
+            white-space: nowrap !important;
+          }
+          td {
+            font-size: 8px !important;
+            padding: 2px 4px !important;
+            white-space: nowrap !important;
+            overflow: hidden !important;
+            text-overflow: ellipsis !important;
+          }
+
+          /* Larguras fixas para tabela do extrato (6 colunas — A4 = ~190mm) */
+          table th:nth-child(1), table td:nth-child(1) { width: 52px !important; }  /* Data */
+          table th:nth-child(2), table td:nth-child(2) { width: 30% !important; }   /* Lançamento */
+          table th:nth-child(3), table td:nth-child(3) { width: 25% !important; }   /* Cliente */
+          table th:nth-child(4), table td:nth-child(4) { width: 60px !important; }  /* Conta */
+          table th:nth-child(5), table td:nth-child(5) { width: 70px !important; }  /* Entrada */
+          table th:nth-child(6), table td:nth-child(6) { width: 70px !important; }  /* Saída */
+
+          /* Badges de conta: texto simples, sem pill */
+          span[class*="rounded-full"] {
+            background: none !important;
+            border: none !important;
+            border-radius: 0 !important;
+            padding: 0 !important;
+            font-size: 7px !important;
+            font-weight: 600 !important;
+          }
+
+          /* Cards de resumo: uma linha horizontal compacta */
+          .grid {
+            display: flex !important;
+            flex-wrap: nowrap !important;
+            gap: 6px !important;
+            margin-bottom: 8px !important;
+          }
+          .grid > div {
+            flex: 1 !important;
+            padding: 4px 6px !important;
+            min-width: 0 !important;
+          }
+          .grid p { font-size: 7px !important; margin: 0 !important; }
+          .grid input { font-size: 9px !important; font-weight: bold; }
+
+          /* Reduz espaços internos de Cards */
+          .p-4 { padding: 6px !important; }
+          .px-4 { padding-left: 6px !important; padding-right: 6px !important; }
+          .py-3 { padding-top: 3px !important; padding-bottom: 3px !important; }
+          .py-2\\.5 { padding-top: 2px !important; padding-bottom: 2px !important; }
+
+          /* Rodapé da tabela (totais) */
+          tfoot td { font-size: 8px !important; white-space: nowrap !important; }
+          tfoot tr:last-child td { font-size: 10px !important; }
+
+          /* Ícones SVG: esconde para não ocupar espaço */
+          svg { display: none !important; }
         }
       `}</style>
       {/* Header com abas e filtros */}
