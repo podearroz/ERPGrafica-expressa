@@ -28,7 +28,7 @@ const emptyForm = {
 };
 
 const Clientes = () => {
-  const { clientes, addCliente, updateCliente, deleteCliente, fetchClientes, loading } = useClienteStore();
+  const { clientes, addCliente, updateCliente, deleteCliente, fetchClientes, searchClientes, loading } = useClienteStore();
 
   useEffect(() => {
     fetchClientes();
@@ -40,6 +40,18 @@ const Clientes = () => {
   const [editingCliente, setEditingCliente] = useState(null);
   const [formData, setFormData] = useState(emptyForm);
 
+  // Debounce para busca server-side (evita request a cada tecla)
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (searchTerm.trim()) {
+        searchClientes(searchTerm.trim());
+      } else {
+        fetchClientes();
+      }
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
+
   const headers = [
     { label: 'Nome / Razão Social' },
     { label: 'CPF/CNPJ' },
@@ -48,17 +60,8 @@ const Clientes = () => {
     { label: 'Ações', align: 'right' }
   ];
 
-  const filteredClientes = clientes.filter(c => {
-    const q = searchTerm.toLowerCase();
-    return (
-      (c.nome || '').toLowerCase().includes(q) ||
-      (c.nome_fantasia || '').toLowerCase().includes(q) ||
-      (c.cpf_cnpj || c.cpfCnpj || '').includes(searchTerm) ||
-      (c.email || '').toLowerCase().includes(q)
-    );
-  });
-
-  const pagedClientes = filteredClientes.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+  // clientes já vem filtrado pelo server quando há searchTerm
+  const pagedClientes = clientes.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
 
   const handleSearch = (v) => { setSearchTerm(v); setCurrentPage(1); };
 
@@ -198,7 +201,7 @@ const Clientes = () => {
         </Table>
         <Pagination
           currentPage={currentPage}
-          totalItems={filteredClientes.length}
+          totalItems={clientes.length}
           pageSize={PAGE_SIZE}
           onPageChange={setCurrentPage}
         />
