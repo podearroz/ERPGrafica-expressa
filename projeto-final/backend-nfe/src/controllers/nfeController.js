@@ -349,9 +349,16 @@ export async function corrigirNFe(req, res) {
       return res.status(400).json({ success: false, error: 'Correção deve ter pelo menos 15 caracteres' });
     }
 
-    const seq = parseInt(nSeqEvento) || 1;
+    let seq = parseInt(nSeqEvento) || 1;
     console.log(`CC-e solicitada seq=${seq} para NF-e:`, chave);
-    const resultado = await corrigirNFeSefaz(chave, xCorrecao.trim(), seq);
+    let resultado = await corrigirNFeSefaz(chave, xCorrecao.trim(), seq);
+
+    // cStat=573: duplicidade de evento — incrementa sequência e tenta novamente (até seq 20)
+    while (String(resultado.cStat) === '573' && seq < 20) {
+      seq += 1;
+      console.log(`[CCE] Duplicidade detectada, tentando seq=${seq}...`);
+      resultado = await corrigirNFeSefaz(chave, xCorrecao.trim(), seq);
+    }
 
     if (resultado.corrigido) {
       try {
