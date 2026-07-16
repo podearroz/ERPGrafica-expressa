@@ -1188,9 +1188,10 @@ const ModalCancelarNFe = ({ nota, onClose, onCancelado }) => {
 };
 
 // ─── Modal de Carta de Correção Eletrônica ────────────────────────────────────
-const ModalCorrigirNFe = ({ nota, onClose }) => {
+const ModalCorrigirNFe = ({ nota, onClose, onCorrigido }) => {
   const [xCorrecao, setXCorrecao] = useState('');
   const [enviando, setEnviando] = useState(false);
+  const [resultado, setResultado] = useState(null); // { protocolo, dhReg, xCorrecao }
 
   const handleEnviar = async () => {
     if (xCorrecao.trim().length < 15) {
@@ -1203,18 +1204,23 @@ const ModalCorrigirNFe = ({ nota, onClose }) => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ xCorrecao: xCorrecao.trim(), nSeqEvento: 1 }),
       });
-      const resultado = await res.json();
-      if (resultado.success || resultado.corrigido) {
+      const ret = await res.json();
+      if (ret.success || ret.corrigido) {
         toast.success('CC-e registrada na SEFAZ com sucesso!');
-        onClose();
+        setResultado({ protocolo: ret.protocolo, xCorrecao: xCorrecao.trim(), dhReg: new Date().toLocaleString('pt-BR') });
+        onCorrigido && onCorrigido();
       } else {
-        toast.error(`SEFAZ: ${resultado.message || resultado.error}`);
+        toast.error(`SEFAZ: ${ret.message || ret.error}`);
       }
     } catch (e) {
       toast.error(`Erro ao enviar CC-e: ${e.message}`);
     } finally {
       setEnviando(false);
     }
+  };
+
+  const baixarPDFCCe = () => {
+    window.open(`${NFE_API_URL}/nfe/cce-pdf/${nota.chave_acesso}`, '_blank');
   };
 
   return (
@@ -1258,21 +1264,49 @@ const ModalCorrigirNFe = ({ nota, onClose }) => {
             />
             <p className="text-xs text-slate-400 mt-1 text-right">{xCorrecao.length}/1000</p>
           </div>
-          <div className="text-xs text-slate-500 space-y-0.5">
-            <p><span className="font-medium">Chave:</span> {nota.chave_acesso || '—'}</p>
+          {!resultado && (
+            <div className="text-xs text-slate-500 space-y-0.5">
+              <p><span className="font-medium">Chave:</span> {nota.chave_acesso || '—'}</p>
+            </div>
+          )}
+        </div>
+
+        {resultado ? (
+          /* ── Tela de sucesso ── */
+          <div className="px-6 pb-6 space-y-4">
+            <div className="bg-green-50 border border-green-200 rounded-lg p-4 space-y-2">
+              <p className="font-semibold text-green-800 flex items-center gap-2">
+                <CheckCircle className="w-4 h-4" /> CC-e registrada na SEFAZ
+              </p>
+              <div className="text-sm text-green-700 space-y-1">
+                <p><span className="font-medium">Protocolo:</span> {resultado.protocolo || '—'}</p>
+                <p><span className="font-medium">Data/Hora:</span> {resultado.dhReg}</p>
+                <p><span className="font-medium">Texto:</span> {resultado.xCorrecao}</p>
+              </div>
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={baixarPDFCCe}
+                className="flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold bg-blue-600 text-white hover:bg-blue-700 transition-colors"
+              >
+                <Download className="w-4 h-4" /> Baixar PDF da CC-e
+              </button>
+              <Button variant="secondary" onClick={onClose}>Fechar</Button>
+            </div>
           </div>
-        </div>
-        <div className="px-6 py-4 border-t flex justify-between">
-          <Button variant="secondary" onClick={onClose}>Voltar</Button>
-          <button
-            onClick={handleEnviar}
-            disabled={enviando || xCorrecao.trim().length < 15}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold bg-amber-600 text-white hover:bg-amber-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-          >
-            <Pencil className="w-4 h-4" />
-            {enviando ? 'Enviando...' : 'Enviar CC-e'}
-          </button>
-        </div>
+        ) : (
+          <div className="px-6 py-4 border-t flex justify-between">
+            <Button variant="secondary" onClick={onClose}>Voltar</Button>
+            <button
+              onClick={handleEnviar}
+              disabled={enviando || xCorrecao.trim().length < 15}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold bg-amber-600 text-white hover:bg-amber-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              <Pencil className="w-4 h-4" />
+              {enviando ? 'Enviando...' : 'Enviar CC-e'}
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -1516,7 +1550,8 @@ const NotasFiscais = () => {
       )}
       {showCorrigirModal && notaParaCorrigir && (
         <ModalCorrigirNFe nota={notaParaCorrigir}
-          onClose={() => { setShowCorrigirModal(false); setNotaParaCorrigir(null); }} />
+          onClose={() => { setShowCorrigirModal(false); setNotaParaCorrigir(null); }}
+          onCorrigido={() => fetchNotasFiscais()} />
       )}
 
       <Card>
@@ -1602,6 +1637,13 @@ const NotasFiscais = () => {
                       className="text-amber-500 hover:text-amber-700" title="Carta de Correção (CC-e)">
                       <Pencil className="w-4 h-4" />
                     </button>
+                    {nota.cce_protocolo && (
+                      <button
+                        onClick={() => window.open(`${NFE_API_URL}/nfe/cce-pdf/${nota.chave_acesso}`, '_blank')}
+                        className="text-blue-500 hover:text-blue-700" title="Baixar PDF da CC-e">
+                        <FileText className="w-4 h-4" />
+                      </button>
+                    )}
                     <button onClick={() => { setNotaParaCancelar(nota); setShowCancelarModal(true); }}
                       className="text-red-500 hover:text-red-700" title="Cancelar NF-e">
                       <Ban className="w-4 h-4" />

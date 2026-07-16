@@ -122,6 +122,23 @@ export async function atualizarStatusNFe(chaveAcesso, status) {
   if (error) throw new Error(`Erro ao atualizar status: ${error.message}`);
 }
 
+// ── Salva CC-e autorizada no banco ────────────────────────────────────────
+
+export async function salvarCCe(chaveAcesso, { protocolo, data, texto, xml }) {
+  const { error } = await db()
+    .from('notas_fiscais')
+    .update({
+      cce_protocolo: protocolo,
+      cce_data:      data,
+      cce_texto:     texto,
+      cce_xml:       xml,
+      updated_at:    new Date().toISOString(),
+    })
+    .eq('chave_acesso', chaveAcesso);
+
+  if (error) throw new Error(`Erro ao salvar CC-e: ${error.message}`);
+}
+
 // ── Consulta sequência atual (para monitoramento) ─────────────────────────
 
 export async function consultarSequencia(serie = '1') {

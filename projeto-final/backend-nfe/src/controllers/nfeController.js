@@ -9,7 +9,7 @@ const bwipjs = require('bwip-js');
 import { buildNFeXml } from '../services/nfeXmlBuilder.js';
 import { assinarXml, autorizarNFe, consultarNFeSefaz, checkStatusSefaz, cancelarNFeSefaz, corrigirNFeSefaz } from '../services/sefazService.js';
 import { getInfoCertificado } from '../services/certificadoService.js';
-import { proximoNumeroNFe, rollbackNumeroNFe, salvarNFe, buscarNFePorChave, consultarSequencia, atualizarStatusNFe } from '../services/supabaseNfeService.js';
+import { proximoNumeroNFe, rollbackNumeroNFe, salvarNFe, buscarNFePorChave, consultarSequencia, atualizarStatusNFe, salvarCCe } from '../services/supabaseNfeService.js';
 
 // ── Parser do nfeProc XML — extrai todos os dados para o DANFE ───────────────
 function _t(v) { return typeof v === 'object' && v !== null ? (v._ ?? '') : (v ?? ''); }
@@ -353,6 +353,19 @@ export async function corrigirNFe(req, res) {
     console.log(`CC-e solicitada seq=${seq} para NF-e:`, chave);
     const resultado = await corrigirNFeSefaz(chave, xCorrecao.trim(), seq);
 
+    if (resultado.corrigido) {
+      try {
+        await salvarCCe(chave, {
+          protocolo: resultado.protocolo,
+          data:      new Date().toISOString(),
+          texto:     xCorrecao.trim(),
+          xml:       resultado.rawXml,
+        });
+      } catch (e) {
+        console.warn('Aviso: CC-e autorizada mas erro ao salvar no banco:', e.message);
+      }
+    }
+
     res.json({
       success:   resultado.corrigido,
       corrigido: resultado.corrigido,
@@ -366,6 +379,112 @@ export async function corrigirNFe(req, res) {
   } catch (error) {
     console.error('Erro ao enviar CC-e:', error);
     res.status(500).json({ success: false, error: error.message });
+  }
+}
+
+// ── PDF da CC-e ───────────────────────────────────────────────────────────
+
+export async function downloadCCePDF(req, res) {
+  try {
+    const { chave } = req.params;
+    const nota = await buscarNFePorChave(chave);
+
+    if (!nota) return res.status(404).json({ success: false, error: 'NF-e não encontrada' });
+    if (!nota.cce_protocolo) return res.status(404).json({ success: false, error: 'Esta NF-e não possui CC-e registrada' });
+
+    const doc = new PDFDocument({ size: 'A4', margin: 30, info: { Title: `CC-e NF-e ${nota.numero}` } });
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `inline; filename="CCe_NF${nota.numero}.pdf"`);
+    doc.pipe(res);
+
+    const W = doc.page.width - 60; // largura útil
+    const left = 30;
+
+    // ── Cabeçalho ────────────────────────────────────────────────────────
+    // Barcode
+    let barcodeImg = null;
+    if (nota.chave_acesso && !/^0+$/.test(nota.chave_acesso)) {
+      try {
+        const png = await bwipjs.toBuffer({ bcid: 'code128', text: nota.chave_acesso, scale: 2, height: 8, includetext: false });
+        barcodeImg = png;
+      } catch (_) {}
+    }
+
+    const colL = W * 0.55 + left;
+    const colLW = W * 0.45;
+
+    // Bloco esquerdo: título
+    doc.rect(left, 30, W * 0.55, 60).stroke();
+    doc.font('Helvetica-Bold').fontSize(28).text('CC-e', left + 8, 38);
+    doc.fontSize(11).text('Carta de Correção Eletrônica', left + 8, 68);
+
+    // Bloco direito: barcode + chave
+    doc.rect(colL, 30, colLW, 60).stroke();
+    doc.font('Helvetica').fontSize(6).text('Controle do Fisco', colL + 4, 34);
+    if (barcodeImg) doc.image(barcodeImg, colL + 4, 40, { width: colLW - 8, height: 18 });
+    doc.fontSize(5.5).font('Courier-Bold').text(nota.chave_acesso || '', colL + 4, 62, { width: colLW - 8, lineBreak: false });
+
+    // Segunda linha: chave de acesso label
+    doc.rect(colL, 90, colLW, 16).stroke();
+    doc.font('Helvetica').fontSize(6).text('Chave de Acesso', colL + 4, 92);
+    doc.font('Courier-Bold').fontSize(5.5).text(nota.chave_acesso || '', colL + 4, 99, { width: colLW - 8, lineBreak: false });
+
+    // Consulta portal
+    doc.rect(colL, 106, colLW, 24).stroke();
+    doc.font('Helvetica').fontSize(5.5)
+      .text('Consulte a autenticidade no portal nacional da NF-e', colL + 4, 110, { align: 'center', width: colLW - 8 })
+      .text('www.nfe.fazenda.gov.br/portal ou no site da Sefaz autorizadora', colL + 4, 116, { align: 'center', width: colLW - 8 });
+
+    // ── Tabela de campos ────────────────────────────────────────────────
+    const nProt  = nota.cce_protocolo || '—';
+    const dhReg  = nota.cce_data
+      ? new Date(nota.cce_data).toLocaleString('pt-BR', { timeZone: 'America/Porto_Velho' }).replace(',', ' -')
+      : '—';
+    const numSerie = `${String(nota.numero || '').padStart(9, '0')} / ${nota.serie || '001'}`;
+
+    const campos = [
+      ['CNPJ/CPF Emitente', process.env.EMPRESA_CNPJ || '07.240.770/0001-50'],
+      ['Data/Hora Autorização', dhReg],
+      ['Protocolo', nProt],
+      ['Número/Série', numSerie],
+      ['Órgão', '11'],
+      ['Evento', 'Carta de Correcao'],
+      ['Tipo Evento', '110110'],
+      ['Seq. Evento', '1'],
+      ['Versão Evento', '1.00'],
+    ];
+
+    const tableTop  = 132;
+    const leftW     = W * 0.38;
+    const rightW    = W - leftW;
+    const rowH      = 22;
+
+    // Coluna esquerda: campos
+    campos.forEach(([label, valor], i) => {
+      const y = tableTop + i * rowH;
+      doc.rect(left, y, leftW, rowH).stroke();
+      doc.font('Helvetica').fontSize(6).fillColor('#555').text(label, left + 4, y + 4);
+      doc.font('Helvetica-Bold').fontSize(8).fillColor('black').text(valor, left + 4, y + 11);
+    });
+
+    // Coluna direita: Correção (altura total da tabela)
+    const totalH = campos.length * rowH;
+    doc.rect(left + leftW, tableTop, rightW, totalH).stroke();
+    doc.font('Helvetica').fontSize(6).fillColor('#555').text('Correção', left + leftW + 4, tableTop + 4);
+    doc.font('Helvetica').fontSize(9).fillColor('black')
+      .text(nota.cce_texto || '', left + leftW + 4, tableTop + 14, { width: rightW - 8 });
+
+    // ── Rodapé legal ────────────────────────────────────────────────────
+    const footerY = tableTop + totalH + 16;
+    doc.rect(left, footerY, W, 70).stroke();
+    const legalText = 'A Carta de Correção é disciplinada pelo parágrafo 1º-A do art. 7º do Convênio S/N, de 15 de dezembro de 1970 e pode ser utilizada para regularização de erro ocorrido na emissão de documento fiscal, desde que o erro não esteja relacionado com:\n\nI - as variáveis que determinam o valor do imposto tais como: base de cálculo, alíquota, diferença de preço, quantidade, valor da operação ou da prestação;\nII - a correção de dados cadastrais que implique mudança do remetente ou do destinatário;\nIII - a data de emissão ou de saída.';
+    doc.font('Helvetica').fontSize(7).fillColor('black')
+      .text(legalText, left + 6, footerY + 6, { width: W - 12 });
+
+    doc.end();
+  } catch (error) {
+    console.error('Erro ao gerar PDF CC-e:', error);
+    if (!res.headersSent) res.status(500).json({ success: false, error: error.message });
   }
 }
 
