@@ -31,6 +31,7 @@ export const ordemServicoService = {
         cliente:clientes(id, nome, cpf_cnpj, telefone),
         itens:itens_os(*)
       `)
+      .order("data_abertura", { ascending: false })
       .order("created_at", { ascending: false });
     if (error) throw error;
     return data;
@@ -55,6 +56,7 @@ export const ordemServicoService = {
       .from("ordens_servico")
       .select(`*, cliente:clientes(id, nome), itens:itens_os(*)`)
       .eq("status", status)
+      .order("data_abertura", { ascending: false })
       .order("created_at", { ascending: false });
     if (error) throw error;
     return data;
