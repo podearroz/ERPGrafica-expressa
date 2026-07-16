@@ -7,7 +7,7 @@ import { parseStringPromise } from 'xml2js';
 const require = createRequire(import.meta.url);
 const bwipjs = require('bwip-js');
 import { buildNFeXml } from '../services/nfeXmlBuilder.js';
-import { assinarXml, autorizarNFe, consultarNFeSefaz, checkStatusSefaz, cancelarNFeSefaz } from '../services/sefazService.js';
+import { assinarXml, autorizarNFe, consultarNFeSefaz, checkStatusSefaz, cancelarNFeSefaz, corrigirNFeSefaz } from '../services/sefazService.js';
 import { getInfoCertificado } from '../services/certificadoService.js';
 import { proximoNumeroNFe, rollbackNumeroNFe, salvarNFe, buscarNFePorChave, consultarSequencia, atualizarStatusNFe } from '../services/supabaseNfeService.js';
 
@@ -331,6 +331,40 @@ export async function cancelarNFe(req, res) {
     });
   } catch (error) {
     console.error('Erro ao cancelar NF-e:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+}
+
+// ── Carta de Correção Eletrônica (evento 110110) ──────────────────────────
+
+export async function corrigirNFe(req, res) {
+  try {
+    const { chave }               = req.params;
+    const { xCorrecao, nSeqEvento } = req.body;
+
+    if (!chave || chave.length !== 44) {
+      return res.status(400).json({ success: false, error: 'Chave deve ter 44 dígitos' });
+    }
+    if (!xCorrecao || xCorrecao.trim().length < 15) {
+      return res.status(400).json({ success: false, error: 'Correção deve ter pelo menos 15 caracteres' });
+    }
+
+    const seq = parseInt(nSeqEvento) || 1;
+    console.log(`CC-e solicitada seq=${seq} para NF-e:`, chave);
+    const resultado = await corrigirNFeSefaz(chave, xCorrecao.trim(), seq);
+
+    res.json({
+      success:   resultado.corrigido,
+      corrigido: resultado.corrigido,
+      cStat:     resultado.cStat,
+      xMotivo:   resultado.xMotivo,
+      protocolo: resultado.protocolo,
+      message:   resultado.corrigido
+        ? `CC-e registrada com sucesso! ${resultado.xMotivo}`
+        : `SEFAZ rejeitou a CC-e (${resultado.cStat}): ${resultado.xMotivo}`,
+    });
+  } catch (error) {
+    console.error('Erro ao enviar CC-e:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 }

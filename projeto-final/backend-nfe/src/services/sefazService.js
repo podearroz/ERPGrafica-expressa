@@ -340,3 +340,49 @@ export async function cancelarNFeSefaz(chave, protocolo, justificativa) {
 
   return { rawXml, cStat, xMotivo, protocolo: nProt, cancelado };
 }
+
+// ── Carta de Correção Eletrônica (evento 110110) ───────────────────────────
+
+function buildEventoCorrecao(chave, xCorrecao, nSeqEvento, tpAmb, cnpj) {
+  const now = new Date();
+  const brt = new Date(now.getTime() - 3 * 60 * 60 * 1000);
+  const dhEvento = brt.toISOString().replace(/\.\d{3}Z$/, '-03:00');
+  const seq = String(nSeqEvento).padStart(2, '0');
+  const idEvento = `ID110110${chave}${seq}`;
+  return compact(`<?xml version="1.0" encoding="UTF-8"?><envEvento versao="1.00" xmlns="http://www.portalfiscal.inf.br/nfe"><idLote>${Date.now()}</idLote><evento versao="1.00"><infEvento Id="${idEvento}"><cOrgao>${CUF}</cOrgao><tpAmb>${tpAmb}</tpAmb><CNPJ>${cnpj}</CNPJ><chNFe>${chave}</chNFe><dhEvento>${dhEvento}</dhEvento><tpEvento>110110</tpEvento><nSeqEvento>${nSeqEvento}</nSeqEvento><verEvento>1.00</verEvento><detEvento versao="1.00"><descEvento>Carta de Correcao</descEvento><xCorrecao>${xCorrecao}</xCorrecao><xCondUso>A Carta de Correcao e disciplinada pelo paragrafo 1o-A do art. 7o do Convenio S/N, de 15 de dezembro de 1970 e pode ser utilizada para regularizacao de erro ocorrido na emissao de documento fiscal, desde que o erro nao esteja relacionado com: I - as variaveis que determinam o valor do imposto tais como: base de calculo, aliquota, diferenca de preco, quantidade, valor da operacao ou da prestacao; II - a correcao de dados cadastrais que implique mudanca do remetente ou do destinatario; III - a data de emissao ou de saida.</xCondUso></detEvento></infEvento></evento></envEvento>`);
+}
+
+export async function corrigirNFeSefaz(chave, xCorrecao, nSeqEvento = 1) {
+  const urls   = getSefazUrls();
+  const tpAmb  = process.env.NODE_ENV === 'producao' ? '1' : '2';
+  const cnpj   = (process.env.EMPRESA_CNPJ || '').replace(/\D/g, '');
+  const action = 'http://www.portalfiscal.inf.br/nfe/wsdl/NFeRecepcaoEvento4/nfeRecepcaoEvento';
+
+  console.log(`[CCE] Gerando CC-e seq=${nSeqEvento} para NF-e ${chave}...`);
+  const eventoXml   = buildEventoCorrecao(chave, xCorrecao, nSeqEvento, tpAmb, cnpj);
+  const eventoAssim = assinarEvento(eventoXml);
+  const soap        = buildSoapEvento(eventoAssim);
+
+  console.log(`[CCE] Enviando para SEFAZ RO em ${urls.recepcaoEvento}...`);
+  const rawXml = await enviarSoap(urls.recepcaoEvento, soap, action);
+
+  const parsed   = await parseStringPromise(rawXml, { explicitArray: false, mergeAttrs: true });
+  const envelope = Object.values(parsed)[0];
+  const bodyNode = envelope['soap:Body'] || envelope['s:Body'];
+  const result   = bodyNode?.nfeResultMsg || bodyNode?.nfeDadosMsgResult;
+
+  const retEnv    = result?.retEnvEvento;
+  const retEvt    = retEnv?.retEvento;
+  const infRetEvt = retEvt?.infEvento;
+
+  const cStat   = infRetEvt?.cStat   || retEnv?.cStat   || '?';
+  const xMotivo = infRetEvt?.xMotivo || retEnv?.xMotivo || 'Sem retorno';
+  const nProt   = infRetEvt?.nProt;
+
+  console.log(`[CCE] cStat=${cStat} | ${xMotivo}`);
+
+  // 135 = Evento registrado e vinculado a NF-e
+  const corrigido = ['135', '136'].includes(String(cStat));
+
+  return { rawXml, cStat, xMotivo, protocolo: nProt, corrigido };
+}

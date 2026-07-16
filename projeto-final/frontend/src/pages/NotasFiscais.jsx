@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Edit, Trash2, Save, Send, FileText, CheckCircle, Clock, ChevronLeft, ChevronRight, PlusCircle, XCircle, Download, Eye, Copy, Key, Ban, Search } from 'lucide-react';
+import { Plus, Edit, Trash2, Save, Send, FileText, CheckCircle, Clock, ChevronLeft, ChevronRight, PlusCircle, XCircle, Download, Eye, Copy, Key, Ban, Search, Pencil } from 'lucide-react';
 import useNotaFiscalStore from '@store/notaFiscalStore';
 import Card from '@components/common/Card';
 import Pagination from '@components/common/Pagination';
@@ -1187,6 +1187,97 @@ const ModalCancelarNFe = ({ nota, onClose, onCancelado }) => {
   );
 };
 
+// ─── Modal de Carta de Correção Eletrônica ────────────────────────────────────
+const ModalCorrigirNFe = ({ nota, onClose }) => {
+  const [xCorrecao, setXCorrecao] = useState('');
+  const [enviando, setEnviando] = useState(false);
+
+  const handleEnviar = async () => {
+    if (xCorrecao.trim().length < 15) {
+      toast.error('A correção deve ter no mínimo 15 caracteres.'); return;
+    }
+    setEnviando(true);
+    try {
+      const res = await fetch(`${NFE_API_URL}/nfe/corrigir/${nota.chave_acesso}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ xCorrecao: xCorrecao.trim(), nSeqEvento: 1 }),
+      });
+      const resultado = await res.json();
+      if (resultado.success || resultado.corrigido) {
+        toast.success('CC-e registrada na SEFAZ com sucesso!');
+        onClose();
+      } else {
+        toast.error(`SEFAZ: ${resultado.message || resultado.error}`);
+      }
+    } catch (e) {
+      toast.error(`Erro ao enviar CC-e: ${e.message}`);
+    } finally {
+      setEnviando(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-md">
+        <div className="px-6 py-4 border-b flex items-center justify-between">
+          <div>
+            <h2 className="text-lg font-bold text-amber-700">Carta de Correção — NF-e nº {nota.numero}</h2>
+            <p className="text-xs text-slate-500">Envia evento CC-e (110110) para a SEFAZ</p>
+          </div>
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-600"><XCircle className="w-6 h-6" /></button>
+        </div>
+        <div className="px-6 py-4 space-y-4">
+          <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-sm text-amber-800 space-y-1">
+            <p className="font-semibold">O que pode ser corrigido pela CC-e:</p>
+            <ul className="list-disc list-inside space-y-0.5 text-xs">
+              <li>Dados do endereço do destinatário</li>
+              <li>Responsável pelo frete (conta do remetente/destinatário)</li>
+              <li>Informações complementares / observações</li>
+              <li>Dados de transporte / volume</li>
+            </ul>
+            <p className="font-semibold mt-2 text-red-700">NÃO pode ser corrigido:</p>
+            <ul className="list-disc list-inside space-y-0.5 text-xs text-red-700">
+              <li>Valores, quantidades, alíquotas</li>
+              <li>Destinatário (pessoa diferente)</li>
+              <li>Data de emissão ou de saída</li>
+            </ul>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">
+              Texto da Correção <span className="text-red-500">*</span>
+              <span className="text-slate-400 font-normal ml-1">(mín. 15 caracteres)</span>
+            </label>
+            <textarea
+              className="input w-full resize-none"
+              rows={4}
+              value={xCorrecao}
+              onChange={e => setXCorrecao(e.target.value)}
+              placeholder="Ex: Frete por conta do remetente (CIF). CFOP correto: 5102."
+              maxLength={1000}
+            />
+            <p className="text-xs text-slate-400 mt-1 text-right">{xCorrecao.length}/1000</p>
+          </div>
+          <div className="text-xs text-slate-500 space-y-0.5">
+            <p><span className="font-medium">Chave:</span> {nota.chave_acesso || '—'}</p>
+          </div>
+        </div>
+        <div className="px-6 py-4 border-t flex justify-between">
+          <Button variant="secondary" onClick={onClose}>Voltar</Button>
+          <button
+            onClick={handleEnviar}
+            disabled={enviando || xCorrecao.trim().length < 15}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold bg-amber-600 text-white hover:bg-amber-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            <Pencil className="w-4 h-4" />
+            {enviando ? 'Enviando...' : 'Enviar CC-e'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const ModalDetalhesNFe = ({ nota, onClose }) => {
   const copiarChave = () => {
     navigator.clipboard.writeText(nota.chave_acesso || '');
@@ -1301,10 +1392,12 @@ const NotasFiscais = () => {
   const [showEmitirModal, setShowEmitirModal] = useState(false);
   const [showDetalhesModal, setShowDetalhesModal] = useState(false);
   const [showCancelarModal, setShowCancelarModal] = useState(false);
+  const [showCorrigirModal, setShowCorrigirModal] = useState(false);
   const [editingNota, setEditingNota] = useState(null);
   const [notaParaEmitir, setNotaParaEmitir] = useState(null);
   const [notaDetalhes, setNotaDetalhes] = useState(null);
   const [notaParaCancelar, setNotaParaCancelar] = useState(null);
+  const [notaParaCorrigir, setNotaParaCorrigir] = useState(null);
   const [filtroStatus, setFiltroStatus] = useState('TODOS');
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
@@ -1421,6 +1514,10 @@ const NotasFiscais = () => {
             fetchNotasFiscais();
           }} />
       )}
+      {showCorrigirModal && notaParaCorrigir && (
+        <ModalCorrigirNFe nota={notaParaCorrigir}
+          onClose={() => { setShowCorrigirModal(false); setNotaParaCorrigir(null); }} />
+      )}
 
       <Card>
         <div className="p-6 border-b border-slate-200">
@@ -1500,10 +1597,16 @@ const NotasFiscais = () => {
                   </button>
                 )}
                 {(nota.status === 'Emitida' || nota.status === 'Autorizada') && nota.chave_acesso && (
-                  <button onClick={() => { setNotaParaCancelar(nota); setShowCancelarModal(true); }}
-                    className="text-red-500 hover:text-red-700" title="Cancelar NF-e">
-                    <Ban className="w-4 h-4" />
-                  </button>
+                  <>
+                    <button onClick={() => { setNotaParaCorrigir(nota); setShowCorrigirModal(true); }}
+                      className="text-amber-500 hover:text-amber-700" title="Carta de Correção (CC-e)">
+                      <Pencil className="w-4 h-4" />
+                    </button>
+                    <button onClick={() => { setNotaParaCancelar(nota); setShowCancelarModal(true); }}
+                      className="text-red-500 hover:text-red-700" title="Cancelar NF-e">
+                      <Ban className="w-4 h-4" />
+                    </button>
+                  </>
                 )}
                 <button onClick={() => abrirModal(nota)} className="text-blue-600 hover:text-blue-700" title="Editar">
                   <Edit className="w-4 h-4" />
