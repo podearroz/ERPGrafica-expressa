@@ -64,6 +64,84 @@ const IND_IE = [
   { value: '9', label: '9 – Não Contribuinte' },
 ];
 
+// ─── Interpretação de erros SEFAZ ────────────────────────────────────────────
+const CSTAT_DESCRICAO = {
+  225: { titulo: 'Campo inválido ou vazio no XML', tipo: 'schema' },
+  732: { titulo: 'Valor não permitido para o campo', tipo: 'schema' },
+  204: { titulo: 'NF-e duplicada — número já autorizado pela SEFAZ', tipo: 'duplicata' },
+  539: { titulo: 'Número já usado com chave diferente', tipo: 'duplicata' },
+  218: { titulo: 'NF-e já está cancelada', tipo: 'status' },
+  573: { titulo: 'Evento duplicado', tipo: 'status' },
+  243: { titulo: 'CNPJ do emitente não cadastrado como contribuinte na UF', tipo: 'emitente' },
+  238: { titulo: 'CNPJ do emitente inválido', tipo: 'emitente' },
+  233: { titulo: 'IE do emitente inválida', tipo: 'emitente' },
+  252: { titulo: 'Chave de acesso diverge da calculada', tipo: 'interno' },
+  275: { titulo: 'Número de NF-e duplicado ou já registrado', tipo: 'duplicata' },
+  999: { titulo: 'Erro interno da SEFAZ', tipo: 'sefaz' },
+};
+
+const XML_CAMPO_MAP = {
+  // Destinatário
+  'dest/xNome':             { campo: 'Nome / Razão Social do destinatário', aba: 'Destinatário (aba 2)', acao: 'Preencha o campo "Nome / Razão Social" do destinatário.' },
+  'dest/CNPJ':              { campo: 'CNPJ do destinatário', aba: 'Destinatário (aba 2)', acao: 'Informe um CNPJ válido (14 dígitos) para o destinatário.' },
+  'dest/CPF':               { campo: 'CPF do destinatário', aba: 'Destinatário (aba 2)', acao: 'Informe um CPF válido (11 dígitos) para o destinatário.' },
+  'dest/IE':                { campo: 'Inscrição Estadual do destinatário', aba: 'Destinatário (aba 2)', acao: 'Corrija a IE ou use "ISENTO" se aplicável.' },
+  'dest/indIEDest':         { campo: 'Indicador de IE do destinatário', aba: 'Destinatário (aba 2)', acao: 'Verifique o indicador de IE selecionado.' },
+  'dest/enderDest/xLgr':   { campo: 'Logradouro do destinatário', aba: 'Destinatário (aba 2)', acao: 'Preencha o logradouro (rua/avenida) do destinatário.' },
+  'dest/enderDest/nro':     { campo: 'Número do endereço do destinatário', aba: 'Destinatário (aba 2)', acao: 'Preencha o número do endereço ou use "SN".' },
+  'dest/enderDest/xBairro': { campo: 'Bairro do destinatário', aba: 'Destinatário (aba 2)', acao: 'Preencha o bairro do destinatário.' },
+  'dest/enderDest/cMun':    { campo: 'Código IBGE do município do destinatário', aba: 'Destinatário (aba 2)', acao: 'Preencha o CEP para busca automática do código IBGE.' },
+  'dest/enderDest/xMun':    { campo: 'Nome do município do destinatário', aba: 'Destinatário (aba 2)', acao: 'Preencha o campo "Município" do destinatário.' },
+  'dest/enderDest/UF':      { campo: 'UF do destinatário', aba: 'Destinatário (aba 2)', acao: 'Informe a UF (sigla de 2 letras) do destinatário.' },
+  'dest/enderDest/CEP':     { campo: 'CEP do destinatário', aba: 'Destinatário (aba 2)', acao: 'Informe o CEP do destinatário (8 dígitos).' },
+  // Identificação
+  'ide/natOp':              { campo: 'Natureza da operação', aba: 'Identificação (aba 1)', acao: 'Preencha a natureza da operação (ex: "Venda de mercadoria").' },
+  'ide/cMunFG':             { campo: 'Código do município do emitente', aba: 'Configuração do sistema', acao: 'Verifique a variável EMPRESA_CODIGO_MUNICIPIO no servidor.' },
+  'ide/idDest':             { campo: 'Destino da operação', aba: 'Identificação (aba 1)', acao: 'Verifique o CFOP: 5xxx=interna, 6xxx=interestadual, 7xxx=exterior.' },
+  // Emitente
+  'emit/xNome':             { campo: 'Razão Social do emitente', aba: 'Configuração do servidor', acao: 'Verifique a variável EMPRESA_RAZAO_SOCIAL no Railway.' },
+  'emit/CNPJ':              { campo: 'CNPJ do emitente', aba: 'Configuração do servidor', acao: 'Verifique a variável EMPRESA_CNPJ no Railway.' },
+  // Produtos
+  'det/prod/cProd':         { campo: 'Código do produto', aba: 'Produtos (aba 3)', acao: 'Preencha o código do produto.' },
+  'det/prod/CFOP':          { campo: 'CFOP do produto', aba: 'Produtos (aba 3)', acao: 'Informe o CFOP corretamente (ex: 5101).' },
+  'det/prod/NCM':           { campo: 'NCM do produto', aba: 'Produtos (aba 3)', acao: 'Informe o NCM com 8 dígitos.' },
+  'det/prod/uCom':          { campo: 'Unidade comercial do produto', aba: 'Produtos (aba 3)', acao: 'Preencha a unidade (ex: UN, KG, M2).' },
+  'det/prod/qCom':          { campo: 'Quantidade do produto', aba: 'Produtos (aba 3)', acao: 'Informe a quantidade maior que zero.' },
+  'det/prod/vUnCom':        { campo: 'Valor unitário do produto', aba: 'Produtos (aba 3)', acao: 'Informe o valor unitário maior que zero.' },
+  'det/prod/vProd':         { campo: 'Valor total do produto', aba: 'Produtos (aba 3)', acao: 'O valor total deve ser quantidade × valor unitário.' },
+  'det/prod/xProd':         { campo: 'Descrição do produto', aba: 'Produtos (aba 3)', acao: 'Preencha a descrição do produto.' },
+};
+
+function interpretarErroNFe(cStat, xMotivo) {
+  const resultado = { descricaoCStat: null, campoInfo: null };
+
+  if (cStat && CSTAT_DESCRICAO[Number(cStat)]) {
+    resultado.descricaoCStat = CSTAT_DESCRICAO[Number(cStat)].titulo;
+  }
+
+  // Extrai caminho XML da mensagem SEFAZ (padrão: "Elemento: enviNFe/NFe[1]/infNFe/dest/xNome/")
+  const match = (xMotivo || '').match(/Elemento:\s*[^\s/]+(?:\/NFe\[\d+\])?\/infNFe\/(.+?)\/?\s*(?:\)|$)/i)
+    || (xMotivo || '').match(/Elemento:\s*(.+?)\/?\s*$/i);
+  if (match) {
+    const rawPath = match[1].replace(/\[\d+\]/g, '').replace(/\/$/, '');
+    // Tenta do mais específico ao mais genérico
+    const partes = rawPath.split('/');
+    for (let i = partes.length; i >= 1; i--) {
+      const tentativa = partes.slice(partes.length - i).join('/');
+      if (XML_CAMPO_MAP[tentativa]) {
+        resultado.campoInfo = XML_CAMPO_MAP[tentativa];
+        break;
+      }
+    }
+    if (!resultado.campoInfo) {
+      // Fallback: mostra o caminho extraído de forma legível
+      resultado.campoXml = rawPath;
+    }
+  }
+
+  return resultado;
+}
+
 const ITEM_VAZIO = {
   codigo: '102', descricao: '', ncm: '49111090', cfop: '5101', cst: '0102',
   unidade: 'UN', quantidade: '1', valor_unitario: '', valor_total: '',
@@ -948,30 +1026,55 @@ const ModalEmitirNFe = ({ nota, onClose, onSucesso }) => {
         </div>
 
         {/* Painel de erro SEFAZ */}
-        {erroEmissao && (
-          <div className="mx-6 mb-2 rounded-lg border border-red-300 bg-red-50 p-3">
-            <div className="flex items-start gap-2">
-              <span className="text-red-600 font-bold text-sm mt-0.5">✕</span>
-              <div className="flex-1 min-w-0">
-                <p className="text-red-700 font-semibold text-sm">
-                  {erroEmissao.cStat ? `Rejeição SEFAZ — cStat ${erroEmissao.cStat}` : 'Erro ao emitir'}
-                </p>
-                <p className="text-red-600 text-sm mt-0.5 break-words">{erroEmissao.xMotivo}</p>
-                {erroEmissao.numeroDevolvido && (
-                  <p className="text-green-700 text-xs mt-1">
-                    ✓ Número {ident.numero} devolvido automaticamente — pode corrigir e tentar novamente.
+        {erroEmissao && (() => {
+          const { descricaoCStat, campoInfo, campoXml } = interpretarErroNFe(erroEmissao.cStat, erroEmissao.xMotivo);
+          return (
+            <div className="mx-6 mb-2 rounded-lg border border-red-300 bg-red-50 p-3">
+              <div className="flex items-start gap-2">
+                <span className="text-red-600 font-bold text-sm mt-0.5">✕</span>
+                <div className="flex-1 min-w-0">
+                  {/* Título */}
+                  <p className="text-red-700 font-semibold text-sm">
+                    {erroEmissao.cStat ? `Rejeição SEFAZ — cStat ${erroEmissao.cStat}` : 'Erro ao emitir'}
+                    {descricaoCStat && <span className="font-normal"> — {descricaoCStat}</span>}
                   </p>
-                )}
-                {!erroEmissao.numeroDevolvido && erroEmissao.cStat && (
-                  <p className="text-orange-600 text-xs mt-1">
-                    ⚠ Número pode ter sido registrado na SEFAZ — verifique antes de retentar.
+
+                  {/* Campo problemático identificado */}
+                  {campoInfo && (
+                    <div className="mt-1.5 rounded bg-red-100 border border-red-200 px-2 py-1.5 text-xs">
+                      <p className="text-red-800 font-semibold">Campo com problema: {campoInfo.campo}</p>
+                      <p className="text-red-700 mt-0.5">Onde corrigir: <span className="font-medium">{campoInfo.aba}</span></p>
+                      <p className="text-red-600 mt-0.5">{campoInfo.acao}</p>
+                    </div>
+                  )}
+                  {!campoInfo && campoXml && (
+                    <div className="mt-1.5 rounded bg-red-100 border border-red-200 px-2 py-1 text-xs">
+                      <p className="text-red-700">Elemento XML: <code className="font-mono">{campoXml}</code></p>
+                    </div>
+                  )}
+
+                  {/* Mensagem original da SEFAZ */}
+                  <p className="text-red-500 text-xs mt-1.5 break-words italic">
+                    Mensagem SEFAZ: {erroEmissao.xMotivo}
                   </p>
-                )}
+
+                  {/* Status do número */}
+                  {erroEmissao.numeroDevolvido && (
+                    <p className="text-green-700 text-xs mt-1">
+                      ✓ Número {ident.numero} devolvido automaticamente — corrija e tente novamente.
+                    </p>
+                  )}
+                  {!erroEmissao.numeroDevolvido && erroEmissao.cStat && (
+                    <p className="text-orange-600 text-xs mt-1">
+                      ⚠ Número pode ter sido registrado na SEFAZ — verifique antes de retentar.
+                    </p>
+                  )}
+                </div>
+                <button onClick={() => setErroEmissao(null)} className="text-red-400 hover:text-red-600 text-xs ml-1">✕</button>
               </div>
-              <button onClick={() => setErroEmissao(null)} className="text-red-400 hover:text-red-600 text-xs ml-1">✕</button>
             </div>
-          </div>
-        )}
+          );
+        })()}
 
         {/* Footer */}
         <div className="px-6 py-4 border-t flex justify-between flex-shrink-0">
