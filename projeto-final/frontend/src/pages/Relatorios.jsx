@@ -195,8 +195,110 @@ const Relatorios = () => {
     .reduce((s, p) => s + parseFloat(p.valor || 0), 0);
 
   const handlePrint = () => {
-    document.title = `Extrato - ${dateFrom} a ${dateTo}`;
-    window.print();
+    const fmt  = (v) => parseFloat(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const fdt  = (d) => d ? new Date(d + 'T00:00:00').toLocaleDateString('pt-BR') : '—';
+    const now  = new Date().toLocaleString('pt-BR');
+
+    // Decide o conteúdo baseado na aba ativa
+    let titulo = '';
+    let thead = '';
+    let tbody = '';
+    let tfoot = '';
+
+    if (aba === 'extrato') {
+      titulo = `Extrato / Caixa — ${fdt(dateFrom)} a ${fdt(dateTo)}${contaFiltro !== 'TODOS' ? ` — ${contaFiltro}` : ''}`;
+      thead = `<tr><th style="width:60px">Data</th><th>Lançamento</th><th>Cliente/Fornecedor</th><th style="width:70px">Conta</th><th style="width:80px;text-align:right">Entrada</th><th style="width:80px;text-align:right">Saída</th></tr>`;
+      tbody = movimentosExtrato.map(m => `
+        <tr>
+          <td>${fdt(m.data)}</td>
+          <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${m.lancamento || '—'}</td>
+          <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${m.cliente || '—'}</td>
+          <td style="text-align:center;font-weight:600">${m.conta}</td>
+          <td style="text-align:right;color:#15803d">${m.entrada > 0 ? 'R$ ' + fmt(m.entrada) : '—'}</td>
+          <td style="text-align:right;color:#dc2626">${m.saida > 0 ? 'R$ ' + fmt(m.saida) : '—'}</td>
+        </tr>`).join('');
+      tfoot = `
+        <tr><td colspan="4" style="text-align:right;color:#64748b">Saldo Anterior:</td><td colspan="2" style="text-align:right;font-weight:600">R$ ${fmt(saldoAnteriorNum)}</td></tr>
+        <tr><td colspan="4" style="text-align:right;color:#64748b">Entradas:</td><td colspan="2" style="text-align:right;font-weight:600;color:#15803d">R$ ${fmt(totalEntradasExtrato)}</td></tr>
+        <tr><td colspan="4" style="text-align:right;color:#64748b">Saídas:</td><td colspan="2" style="text-align:right;font-weight:600;color:#dc2626">R$ ${fmt(totalSaidasExtrato)}</td></tr>
+        <tr style="border-top:2px solid #334155"><td colspan="4" style="text-align:right;font-weight:700;font-size:11px">Saldo Final:</td><td colspan="2" style="text-align:right;font-weight:700;font-size:12px;color:${saldoFinal >= 0 ? '#1d4ed8' : '#dc2626'}">R$ ${fmt(saldoFinal)}</td></tr>`;
+    } else if (aba === 'recebidas') {
+      titulo = `Contas Recebidas — ${fdt(dateFrom)} a ${fdt(dateTo)}`;
+      thead = `<tr><th style="width:60px">Data Rec.</th><th>Descrição</th><th>Cliente</th><th style="width:70px">Conta</th><th style="width:80px;text-align:right">Valor</th></tr>`;
+      tbody = contasRecebidas.map(r => `
+        <tr>
+          <td>${fdt(r.data_recebimento || r.data)}</td>
+          <td style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.descricao || '—'}</td>
+          <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.cliente_nome || '—'}</td>
+          <td style="text-align:center;font-weight:600">${r.conta_bancaria || '—'}</td>
+          <td style="text-align:right;color:#15803d;font-weight:600">R$ ${fmt(r.valor)}</td>
+        </tr>`).join('');
+      tfoot = `<tr style="border-top:2px solid #334155"><td colspan="4" style="text-align:right;font-weight:700">Total Recebido:</td><td style="text-align:right;font-weight:700;color:#15803d;font-size:12px">R$ ${fmt(totalRecebido)}</td></tr>`;
+    } else if (aba === 'receber') {
+      titulo = `Contas a Receber — ${fdt(dateFrom)} a ${fdt(dateTo)}`;
+      thead = `<tr><th style="width:60px">Vencimento</th><th>Descrição</th><th>Cliente</th><th style="width:60px;text-align:center">Parcela</th><th style="width:60px;text-align:center">Status</th><th style="width:80px;text-align:right">Valor</th></tr>`;
+      tbody = contasReceber.map(r => `
+        <tr>
+          <td>${fdt(r.data)}</td>
+          <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.descricao || '—'}</td>
+          <td style="max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.cliente_nome || '—'}</td>
+          <td style="text-align:center">${r.parcela || '—'}</td>
+          <td style="text-align:center">${r.status || '—'}</td>
+          <td style="text-align:right;color:#15803d;font-weight:600">R$ ${fmt(r.valor)}</td>
+        </tr>`).join('');
+      tfoot = `<tr style="border-top:2px solid #334155"><td colspan="5" style="text-align:right;font-weight:700">Total:</td><td style="text-align:right;font-weight:700;color:#15803d;font-size:12px">R$ ${fmt(contasReceber.reduce((s,r)=>s+parseFloat(r.valor||0),0))}</td></tr>`;
+    } else if (aba === 'pagar') {
+      titulo = `Pagamento de Contas — ${fdt(dateFrom)} a ${fdt(dateTo)}`;
+      thead = `<tr><th style="width:60px">Vencimento</th><th>Descrição</th><th style="width:60px;text-align:center">Status</th><th style="width:80px;text-align:right">Valor</th></tr>`;
+      tbody = contasPagar.map(p => `
+        <tr>
+          <td>${fdt(p.data)}</td>
+          <td style="max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${p.descricao || '—'}</td>
+          <td style="text-align:center">${p.status || '—'}</td>
+          <td style="text-align:right;color:#dc2626;font-weight:600">R$ ${fmt(p.valor)}</td>
+        </tr>`).join('');
+      tfoot = `<tr style="border-top:2px solid #334155"><td colspan="3" style="text-align:right;font-weight:700">Total:</td><td style="text-align:right;font-weight:700;color:#dc2626;font-size:12px">R$ ${fmt(contasPagar.reduce((s,p)=>s+parseFloat(p.valor||0),0))}</td></tr>`;
+    } else {
+      // Resumo Geral — usa window.print() simples
+      window.print();
+      return;
+    }
+
+    const html = `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>${titulo}</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: Arial, sans-serif; font-size: 9px; color: #1e293b; padding: 12mm 10mm; }
+    h1 { font-size: 13px; margin-bottom: 4px; }
+    .sub { font-size: 8px; color: #64748b; margin-bottom: 10px; }
+    table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+    th { background: #f1f5f9; padding: 4px 5px; text-align: left; font-size: 8px; border-bottom: 2px solid #cbd5e1; white-space: nowrap; }
+    td { padding: 3px 5px; border-bottom: 1px solid #e2e8f0; font-size: 8.5px; vertical-align: middle; }
+    tr:nth-child(even) td { background: #f8fafc; }
+    tfoot td { padding: 4px 5px; background: #f8fafc; }
+    @page { size: A4 portrait; margin: 0; }
+    @media print { body { padding: 10mm 8mm; } }
+  </style>
+</head>
+<body>
+  <h1>Gráfica Express — ${titulo}</h1>
+  <p class="sub">Gerado em ${now} | CNPJ 07.240.770/0001-50</p>
+  <table>
+    <thead>${thead}</thead>
+    <tbody>${tbody || '<tr><td colspan="6" style="text-align:center;padding:12px;color:#94a3b8">Nenhum lançamento no período</td></tr>'}</tbody>
+    <tfoot>${tfoot}</tfoot>
+  </table>
+</body>
+</html>`;
+
+    const win = window.open('', '_blank', 'width=900,height=700');
+    win.document.write(html);
+    win.document.close();
+    win.focus();
+    setTimeout(() => { win.print(); }, 400);
   };
 
   // ── Extrato (entradas recebidas + saídas pagas) ───────────────────────────
