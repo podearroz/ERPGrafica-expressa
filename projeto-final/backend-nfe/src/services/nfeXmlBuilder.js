@@ -244,9 +244,12 @@ export function buildNFeXml({ numero, serie = 1, naturezaOperacao = 'Venda de pr
           },
         },
         infAdic: {
-          infCpl: observacoes
-            ? observacoes.replace(/\r/g, '').replace(/\n+/g, '; ').replace(/\s{2,}/g, ' ').trim().slice(0, 5000)
-            : `EMPRESA OPTANTE PELO SIMPLES NACIONAL; PIX/CNPJ: ${cnpj.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5')}`,
+          infCpl: (() => {
+            const cnpjFmt = cnpj.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5');
+            const defaultCpl = `EMPRESA OPTANTE PELO SIMPLES NACIONAL; DADOS BANCARIOS: SICOOB AG: 3325 C/C 4.231-5; GRAFICA E EDITORA EXPRESS LTDA ME; OU PIX: CNPJ ${cnpjFmt}`;
+            if (!observacoes) return defaultCpl;
+            return observacoes.replace(/\r/g, '').replace(/\n+/g, '; ').replace(/\s{2,}/g, ' ').trim().slice(0, 5000);
+          })(),
         },
       },
     },

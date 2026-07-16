@@ -452,7 +452,7 @@ export async function downloadDANFE(req, res) {
 
     // Informações complementares — semicolons → quebras de linha
     const rawObs = nota.observacoes
-      || `EMPRESSA OPTANTE PELO SIMPLES NACIONAL; DADOS BANCARIOS:; SICOOB; AG: 3325 C/C 4.231-5; GRAFICA E EDITORA EXPRESS LTDA ME; OU PIX:; CNPJ ${emit.cnpj}`;
+      || `EMPRESA OPTANTE PELO SIMPLES NACIONAL; DADOS BANCARIOS: SICOOB AG: 3325 C/C 4.231-5; GRAFICA E EDITORA EXPRESS LTDA ME; OU PIX: CNPJ ${emit.cnpj}`;
     const obsCompl = rawObs
       .split(';')
       .map(s => s.trim())
