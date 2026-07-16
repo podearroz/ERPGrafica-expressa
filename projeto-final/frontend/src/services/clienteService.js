@@ -5,7 +5,7 @@ export const clienteService = {
     const { data, error } = await supabase
       .from("clientes")
       .select("*")
-      .order("created_at", { ascending: false });
+      .order("nome", { ascending: true });
     if (error) throw error;
     return data;
   },
@@ -84,9 +84,9 @@ export const clienteService = {
       .from("clientes")
       .select("*")
       .or(
-        `nome.ilike.%${searchTerm}%,cpf_cnpj.ilike.%${searchTerm}%,email.ilike.%${searchTerm}%`,
+        `nome.ilike.%${searchTerm}%,nome_fantasia.ilike.%${searchTerm}%,cpf_cnpj.ilike.%${searchTerm}%,email.ilike.%${searchTerm}%,telefone.ilike.%${searchTerm}%`,
       )
-      .order("created_at", { ascending: false });
+      .order("nome", { ascending: true });
     if (error) throw error;
     return data;
   },
