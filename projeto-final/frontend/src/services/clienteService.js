@@ -5,7 +5,8 @@ export const clienteService = {
     const { data, error } = await supabase
       .from("clientes")
       .select("*")
-      .order("nome", { ascending: true });
+      .order("nome", { ascending: true })
+      .limit(5000);
     if (error) throw error;
     return data;
   },
