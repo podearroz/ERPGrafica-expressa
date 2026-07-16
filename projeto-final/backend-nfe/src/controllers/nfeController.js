@@ -101,6 +101,19 @@ async function parsearNFeXml(xmlStr) {
     modalidade_frete: _t(transp?.modFrete) || '9',
     forma_pagamento:  _t(tPag) || '01',
     observacoes:      _t(infAdic?.infCpl) || '',
+    venda: {
+      transporte: {
+        modalidade_frete: _t(transp?.modFrete) || '9',
+        peso_bruto:  parseFloat(_t(transp?.vol?.pesoB)  || 0),
+        peso_liquido: parseFloat(_t(transp?.vol?.pesoL) || 0),
+        volumes: {
+          quantidade: parseInt(_t(transp?.vol?.qVol) || 0),
+          especie:    _t(transp?.vol?.esp)   || '',
+          marca:      _t(transp?.vol?.marca) || '',
+          numeracao:  _t(transp?.vol?.nVol)  || '',
+        },
+      },
+    },
   };
 }
 
@@ -151,6 +164,7 @@ export async function emitirNFe(req, res) {
     const formaPagamento   = body.venda?.pagamento?.forma ?? body.formaPagamento   ?? '01';
     const naturezaOperacao = body.venda?.natureza_operacao ?? body.naturezaOperacao;
     const observacoes      = body.venda?.observacoes      ?? body.observacoes ?? '';
+    const transporte       = body.venda?.transporte       ?? body.transporte  ?? {};
 
     if (!destinatario || !itens?.length) {
       return res.status(400).json({
@@ -175,7 +189,7 @@ export async function emitirNFe(req, res) {
 
     // ── 2. Gera e assina o XML ─────────────────────────────────────────────
     console.log(`📝 Gerando XML NF-e nº ${numero}...`);
-    const { xmlStr, chave } = buildNFeXml({ numero, serie, destinatario, itens, formaPagamento, naturezaOperacao, observacoes });
+    const { xmlStr, chave } = buildNFeXml({ numero, serie, destinatario, itens, formaPagamento, naturezaOperacao, observacoes, transporte });
 
     console.log('🔏 Assinando XML com certificado digital...');
     const xmlAssinado = assinarXml(xmlStr);

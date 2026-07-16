@@ -36,7 +36,7 @@ export function gerarChaveAcesso({ cUF, aamm, cnpj, serie, nNF, cNF }) {
 function fmt2(n) { return parseFloat(n || 0).toFixed(2); }
 function fmt4(n) { return parseFloat(n || 0).toFixed(4); }
 
-export function buildNFeXml({ numero, serie = 1, naturezaOperacao = 'Venda de producao do estabelecimento', destinatario, itens, formaPagamento = '01', observacoes = '' }) {
+export function buildNFeXml({ numero, serie = 1, naturezaOperacao = 'Venda de producao do estabelecimento', destinatario, itens, formaPagamento = '01', observacoes = '', transporte = {} }) {
   // tpAmb obrigatoriamente via variável de ambiente
   const tpAmb = process.env.NODE_ENV === 'producao' ? '1' : '2';
   const cUF   = String(process.env.SEFAZ_CODIGO_UF || '11');
@@ -215,9 +215,28 @@ export function buildNFeXml({ numero, serie = 1, naturezaOperacao = 'Venda de pr
             vNF:        fmt2(vNF),
           },
         },
-        transp: {
-          modFrete: '9',  // sem frete
-        },
+        transp: (() => {
+          const modFrete = String(transporte.modalidade_frete ?? '9');
+          const volQtd   = parseInt(transporte.volumes?.quantidade  || 0);
+          const pesoBrut = parseFloat(transporte.peso_bruto         || 0);
+          const pesoLiq  = parseFloat(transporte.peso_liquido       || 0);
+          const especie  = (transporte.volumes?.especie  || '').trim();
+          const marca    = (transporte.volumes?.marca    || '').trim();
+          const numeracao= (transporte.volumes?.numeracao|| '').trim();
+          const fmt3     = v => parseFloat(v || 0).toFixed(3);
+          const t = { modFrete };
+          if (volQtd > 0 || pesoBrut > 0 || pesoLiq > 0) {
+            t.vol = {
+              qVol:  String(volQtd),
+              ...(especie   ? { esp:   especie }   : {}),
+              ...(marca     ? { marca: marca }     : {}),
+              ...(numeracao ? { nVol:  numeracao } : {}),
+              pesoL: fmt3(pesoLiq),
+              pesoB: fmt3(pesoBrut),
+            };
+          }
+          return t;
+        })(),
         pag: {
           detPag: {
             tPag: formaPagamento,
@@ -226,8 +245,8 @@ export function buildNFeXml({ numero, serie = 1, naturezaOperacao = 'Venda de pr
         },
         infAdic: {
           infCpl: observacoes
-            ? observacoes.replace(/[\r\n]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 5000)
-            : `EMPRESA OPTANTE PELO SIMPLES NACIONAL. PIX/CNPJ: ${cnpj.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5')}`,
+            ? observacoes.replace(/\r/g, '').replace(/\n+/g, '; ').replace(/\s{2,}/g, ' ').trim().slice(0, 5000)
+            : `EMPRESA OPTANTE PELO SIMPLES NACIONAL; PIX/CNPJ: ${cnpj.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5')}`,
         },
       },
     },
