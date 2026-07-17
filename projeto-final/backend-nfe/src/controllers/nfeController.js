@@ -182,6 +182,24 @@ export async function emitirNFe(req, res) {
       });
     }
 
+    // ── Valida código IBGE do município do destinatário ANTES de consumir número ──
+    const UF_IBGE_PREFIX = { AC:'12',AL:'27',AM:'13',AP:'16',BA:'29',CE:'23',DF:'53',ES:'32',GO:'52',MA:'21',MG:'31',MS:'50',MT:'51',PA:'15',PB:'25',PE:'26',PI:'22',PR:'41',RJ:'33',RN:'24',RO:'11',RR:'14',RS:'43',SC:'42',SE:'28',SP:'35',TO:'17' };
+    const ufDest = (destinatario.uf || 'RO').toUpperCase();
+    const codMunDest = String(destinatario.codigo_municipio || '').trim();
+    const prefixoEsperado = UF_IBGE_PREFIX[ufDest];
+    if (!codMunDest) {
+      return res.status(400).json({
+        success: false,
+        error: `Código IBGE do município do destinatário não informado. Preencha o CEP no formulário para preenchimento automático.`,
+      });
+    }
+    if (prefixoEsperado && !codMunDest.startsWith(prefixoEsperado)) {
+      return res.status(400).json({
+        success: false,
+        error: `Código IBGE "${codMunDest}" não corresponde à UF "${ufDest}" (deve começar com ${prefixoEsperado}). Informe o CEP para preenchimento automático.`,
+      });
+    }
+
     // ── 1. Pega próximo número do banco (atômico) ──────────────────────────
     console.log('🔢 Obtendo próximo número NF-e do banco...');
     const numero = await proximoNumeroNFe(String(serie));
