@@ -379,16 +379,26 @@ const ModalEmitirNFe = ({ nota, onClose, onSucesso }) => {
   const setI = (f, v) => setIdent(p => ({ ...p, [f]: v }));
   const setD = (f, v) => setDest(p => ({ ...p, [f]: v }));
 
+  const UF_IBGE = { AC:'12',AL:'27',AM:'13',AP:'16',BA:'29',CE:'23',DF:'53',ES:'32',GO:'52',MA:'21',MG:'31',MS:'50',MT:'51',PA:'15',PB:'25',PE:'26',PI:'22',PR:'41',RJ:'33',RN:'24',RO:'11',RR:'14',RS:'43',SC:'42',SE:'28',SP:'35',TO:'17' };
+
   const buscarCodigoIBGE = async (cidade, estado) => {
     try {
       const res = await fetch(`https://servicodados.ibge.gov.br/api/v1/localidades/municipios?nome=${encodeURIComponent(cidade)}`);
       if (!res.ok) return '';
       const lista = await res.json();
-      const match = lista.find(m => m.UF?.sigla?.toUpperCase() === estado?.toUpperCase());
+      // A API do IBGE aninha a UF dentro de microrregiao.mesorregiao.UF
+      const match = lista.find(m => m.microrregiao?.mesorregiao?.UF?.sigla?.toUpperCase() === estado?.toUpperCase());
       return match ? String(match.id) : (lista[0] ? String(lista[0].id) : '');
     } catch {
       return '';
     }
+  };
+
+  const buscarIBGEseMunicipio = async (municipio, uf) => {
+    if (!municipio || !uf || uf.length !== 2) return;
+    const ibge = await buscarCodigoIBGE(municipio, uf);
+    if (ibge) setDest(p => ({ ...p, codigo_municipio: ibge }));
+    else toast.warn('Código IBGE não encontrado. Verifique o campo manualmente.');
   };
 
   const buscarCep = async (cepRaw) => {
@@ -478,6 +488,12 @@ const ModalEmitirNFe = ({ nota, onClose, onSucesso }) => {
     }
     if (aba === 1 && !dest.codigo_municipio) {
       toast.error('Preencha o Código IBGE do Município do destinatário (ou informe o CEP para preenchimento automático).'); return false;
+    }
+    if (aba === 1 && dest.codigo_municipio && dest.uf) {
+      const prefixo = UF_IBGE[dest.uf.toUpperCase()];
+      if (prefixo && !String(dest.codigo_municipio).startsWith(prefixo)) {
+        toast.error(`Código IBGE "${dest.codigo_municipio}" não corresponde à UF "${dest.uf.toUpperCase()}". Informe o CEP ou corrija o código.`); return false;
+      }
     }
     if (aba === 2) {
       for (const it of itens) {
@@ -786,8 +802,8 @@ const ModalEmitirNFe = ({ nota, onClose, onSucesso }) => {
                     <Inp label="Bairro / Distrito" value={dest.bairro} onChange={e => setD('bairro', e.target.value)} placeholder="Ex: JARDIM ARAUCARIA" />
                   </div>
                   <div className="grid grid-cols-4 gap-3">
-                    <Inp label="Município" value={dest.municipio} onChange={e => setD('municipio', e.target.value)} placeholder="Ex: VILHENA" className="col-span-2" />
-                    <Inp label="UF" value={dest.uf} onChange={e => setD('uf', e.target.value)} placeholder="RO" maxLength={2} />
+                    <Inp label="Município" value={dest.municipio} onChange={e => setD('municipio', e.target.value)} onBlur={e => buscarIBGEseMunicipio(e.target.value, dest.uf)} placeholder="Ex: VILHENA" className="col-span-2" />
+                    <Inp label="UF" value={dest.uf} onChange={e => setD('uf', e.target.value.toUpperCase())} onBlur={e => buscarIBGEseMunicipio(dest.municipio, e.target.value)} placeholder="RO" maxLength={2} />
                     <Inp label={buscandoCep ? 'CEP (buscando...)' : 'CEP'} value={dest.cep}
                       onChange={e => setD('cep', e.target.value)}
                       onBlur={e => buscarCep(e.target.value)}

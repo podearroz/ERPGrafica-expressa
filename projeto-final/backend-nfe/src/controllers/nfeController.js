@@ -1130,15 +1130,19 @@ export async function downloadDANFE(req, res) {
         item.aliq_icms != null ? fmt2(item.aliq_icms) : '0,00',
         item.aliq_ipi  != null ? fmt2(item.aliq_ipi)  : '0,00',
       ];
+      // Calcula altura da linha com base na descrição (pode quebrar em múltiplas linhas)
+      const descW = cols[1].w;
+      const descH = doc.fontSize(6).font('Helvetica').heightOfString(row[1], { width: descW - 2, lineBreak: true });
+      const itemRowH = Math.max(rowH, descH + 4);
       cx = ML;
       cols.forEach((c, i) => {
-        box(cx, y, c.w, rowH);
+        box(cx, y, c.w, itemRowH);
         doc.save().fontSize(6).font('Helvetica').fillColor(PRETO)
            .text(row[i], cx + 1, y + 2,
-                 { width: c.w - 2, align: c.align, lineBreak: false, ellipsis: true }).restore();
+                 { width: c.w - 2, align: c.align, lineBreak: i === 1, ellipsis: i !== 1 }).restore();
         cx += c.w;
       });
-      y += rowH;
+      y += itemRowH;
     });
 
     // Linhas em branco para completar mínimo de 15 linhas na tabela de produtos
