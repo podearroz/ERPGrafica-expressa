@@ -325,14 +325,15 @@ const Relatorios = () => {
     const saidas = pagamentos
       .filter(p => p.status === 'Pago')
       .filter(p => {
-        if (dateFrom && p.data < dateFrom) return false;
-        if (dateTo && p.data > dateTo) return false;
+        const dataEfetiva = p.data_pagamento || p.data;
+        if (dateFrom && dataEfetiva < dateFrom) return false;
+        if (dateTo && dataEfetiva > dateTo) return false;
         if (contaFiltro !== 'TODOS' && (p.conta_bancaria || 'SICOOB') !== contaFiltro) return false;
         return true;
       })
       .map(p => ({
         id: p.id,
-        data: p.data,
+        data: p.data_pagamento || p.data,
         lancamento: p.descricao,
         cliente: p.descricao,
         conta: p.conta_bancaria || 'SICOOB',
