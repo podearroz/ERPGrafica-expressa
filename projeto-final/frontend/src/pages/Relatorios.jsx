@@ -337,8 +337,8 @@ const Relatorios = () => {
         lancamento: p.descricao,
         cliente: p.descricao,
         conta: p.conta_bancaria || 'SICOOB',
-        entrada: 0,
-        saida: parseFloat(p.valor || 0),
+        entrada: p.tipo === 'entrada' ? parseFloat(p.valor || 0) : 0,
+        saida: p.tipo !== 'entrada' ? parseFloat(p.valor || 0) : 0,
       }));
 
     return [...entradas, ...saidas].sort((a, b) => (a.data || '').localeCompare(b.data || ''));
