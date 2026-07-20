@@ -4,6 +4,7 @@ import { ClipboardList, CheckCircle, XCircle, FileText, Eye, Trash2, Printer, Se
 const FORMAS_PAGAMENTO = ['Dinheiro', 'PIX', 'Cartão de Débito', 'Cartão de Crédito', 'Boleto', 'Cheque', 'Transferência'];
 import useOrdemServicoStore from '@store/ordemServicoStore';
 import { supabase } from '@/config/supabaseClient';
+import { ordemServicoService } from '@services/ordemServicoService';
 import Card from '@components/common/Card';
 import Button from '@components/common/Button';
 import Table from '@components/common/Table';
@@ -189,6 +190,8 @@ const OrdensServico = () => {
 
   const [filtroStatus, setFiltroStatus] = useState('TODOS');
   const [searchTerm, setSearchTerm] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
+  const [isSearching, setIsSearching] = useState(false);
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [cpfFilter, setCpfFilter] = useState('');
@@ -221,18 +224,37 @@ const OrdensServico = () => {
     return () => { document.removeEventListener('visibilitychange', onVisible); clearInterval(interval); };
   }, []);
 
+  // Busca server-side quando o usuário digita (resolve limite de 1000 linhas)
+  useEffect(() => {
+    if (!searchTerm.trim()) {
+      setSearchResults([]);
+      return;
+    }
+    setIsSearching(true);
+    const timer = setTimeout(async () => {
+      try {
+        const data = await ordemServicoService.search(searchTerm);
+        setSearchResults(data);
+      } catch (e) {
+        console.error(e);
+      } finally {
+        setIsSearching(false);
+      }
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
+
   const resetPage = () => setCurrentPage(1);
   const handleSearch = (v) => { setSearchTerm(v); resetPage(); };
   const handleFiltro = (v) => { setFiltroStatus(v); resetPage(); };
 
   const cpfNorm = cpfFilter.replace(/\D/g, '');
 
-  const ordens = (filtroStatus === 'TODOS' ? ordensServico : ordensServico.filter((os) => os.status === filtroStatus))
+  // Quando há busca ativa usa resultados do servidor (bypassa limite de 1000 linhas)
+  const baseList = searchTerm.trim() ? searchResults : ordensServico;
+
+  const ordens = (filtroStatus === 'TODOS' ? baseList : baseList.filter((os) => os.status === filtroStatus))
     .filter((os) => {
-      if (searchTerm) {
-        const q = searchTerm.toLowerCase();
-        if (!String(os.numero_os).includes(searchTerm) && !(os.cliente?.nome || os.cliente_nome || '').toLowerCase().includes(q)) return false;
-      }
       if (dateFrom && os.data_abertura < dateFrom) return false;
       if (dateTo && os.data_abertura > dateTo) return false;
       if (cpfNorm) {
@@ -415,6 +437,9 @@ const OrdensServico = () => {
                   onChange={(e) => handleSearch(e.target.value)}
                   className="pl-9 pr-3 py-1.5 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 w-44"
                 />
+                {isSearching && (
+                  <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-slate-400">...</span>
+                )}
               </div>
               <input
                 type="date"

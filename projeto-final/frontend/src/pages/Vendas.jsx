@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Plus, Edit, Trash2, Save, CheckCircle, Search } from 'lucide-react';
 import useVendaStore from '@store/vendaStore';
 import useClienteStore from '@store/clienteStore';
+import { clienteService } from '@services/clienteService';
 import Card from '@components/common/Card';
 import Pagination from '@components/common/Pagination';
 const PAGE_SIZE = 10;
@@ -49,6 +50,40 @@ const Vendas = () => {
   const [editingVenda, setEditingVenda] = useState(null);
   const [formData, setFormData] = useState(FORM_VAZIO);
 
+  // Autocomplete de cliente cadastrado
+  const [clienteSearch, setClienteSearch] = useState('');
+  const [clienteSugestoes, setClienteSugestoes] = useState([]);
+  const [showClienteDropdown, setShowClienteDropdown] = useState(false);
+  const clienteSearchRef = useRef(null);
+
+  // Busca debounced de clientes no autocomplete
+  useEffect(() => {
+    if (formData.tipoCliente !== 'cadastrado' || !clienteSearch.trim()) {
+      setClienteSugestoes([]);
+      setShowClienteDropdown(false);
+      return;
+    }
+    const q = clienteSearch.toLowerCase();
+    // Primeiro filtra do cache local
+    const local = clientes.filter(c =>
+      (c.nome_fantasia || '').toLowerCase().includes(q) ||
+      (c.nome || '').toLowerCase().includes(q)
+    ).slice(0, 8);
+    if (local.length > 0) {
+      setClienteSugestoes(local);
+      setShowClienteDropdown(true);
+      return;
+    }
+    // Se não achou localmente, busca no servidor
+    const timer = setTimeout(() => {
+      clienteService.search(clienteSearch).then(data => {
+        setClienteSugestoes((data || []).slice(0, 8));
+        setShowClienteDropdown(true);
+      }).catch(() => {});
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [clienteSearch, clientes, formData.tipoCliente]);
+
   const headers = [
     { label: 'Data' },
     { label: 'Cliente' },
@@ -85,16 +120,28 @@ const Vendas = () => {
         formaPagamento: venda.forma_pagamento || venda.formaPagamento || '',
         itens,
       });
+      if (isCadastrado) {
+        const c = clientes.find(x => x.id === venda.cliente_id);
+        setClienteSearch(c ? (c.nome_fantasia || c.nome) : (venda.cliente?.nome || ''));
+      } else {
+        setClienteSearch('');
+      }
     } else {
       setEditingVenda(null);
       setFormData({ ...FORM_VAZIO, itens: [{ ...ITEM_VAZIO }] });
+      setClienteSearch('');
     }
+    setClienteSugestoes([]);
+    setShowClienteDropdown(false);
     setShowModal(true);
   };
 
   const closeModal = () => {
     setShowModal(false);
     setEditingVenda(null);
+    setClienteSearch('');
+    setClienteSugestoes([]);
+    setShowClienteDropdown(false);
   };
 
   const handleSave = async () => {
@@ -190,6 +237,23 @@ const Vendas = () => {
   };
 
   const set = (field, value) => setFormData((prev) => ({ ...prev, [field]: value }));
+
+  const handleTipoClienteChange = (tipo) => {
+    set('tipoCliente', tipo);
+    if (tipo !== 'cadastrado') {
+      set('clienteId', '');
+      setClienteSearch('');
+      setClienteSugestoes([]);
+      setShowClienteDropdown(false);
+    }
+  };
+
+  const selecionarCliente = (c) => {
+    set('clienteId', c.id);
+    setClienteSearch(c.nome_fantasia || c.nome);
+    setClienteSugestoes([]);
+    setShowClienteDropdown(false);
+  };
 
   const updateItem = (index, field, value) => {
     setFormData((prev) => {
@@ -343,7 +407,7 @@ const Vendas = () => {
             <div className="flex rounded-lg border border-slate-200 overflow-hidden mb-3">
               <button
                 type="button"
-                onClick={() => set('tipoCliente', 'cadastrado')}
+                onClick={() => handleTipoClienteChange('cadastrado')}
                 className={`flex-1 px-3 py-2 text-sm font-medium transition-colors ${
                   formData.tipoCliente === 'cadastrado'
                     ? 'bg-blue-600 text-white'
@@ -354,7 +418,7 @@ const Vendas = () => {
               </button>
               <button
                 type="button"
-                onClick={() => set('tipoCliente', 'avulso')}
+                onClick={() => handleTipoClienteChange('avulso')}
                 className={`flex-1 px-3 py-2 text-sm font-medium transition-colors ${
                   formData.tipoCliente === 'avulso'
                     ? 'bg-blue-600 text-white'
@@ -366,18 +430,45 @@ const Vendas = () => {
             </div>
 
             {formData.tipoCliente === 'cadastrado' ? (
-              <select
-                value={formData.clienteId}
-                onChange={(e) => set('clienteId', e.target.value)}
-                className="input"
-              >
-                <option value="">Selecione um cliente</option>
-                {clientes.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.nome_fantasia || c.nome}
-                  </option>
-                ))}
-              </select>
+              <div className="relative">
+                <input
+                  ref={clienteSearchRef}
+                  type="text"
+                  className="input pr-8"
+                  placeholder="Digite o nome do cliente..."
+                  value={clienteSearch}
+                  onChange={(e) => {
+                    setClienteSearch(e.target.value);
+                    if (formData.clienteId) set('clienteId', '');
+                  }}
+                  onFocus={() => { if (clienteSugestoes.length > 0) setShowClienteDropdown(true); }}
+                  onBlur={() => setTimeout(() => setShowClienteDropdown(false), 150)}
+                  autoComplete="off"
+                />
+                {formData.clienteId && (
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-green-500 text-sm font-bold">✓</span>
+                )}
+                {showClienteDropdown && clienteSugestoes.length > 0 && (
+                  <div className="absolute z-50 top-full left-0 right-0 bg-white border border-slate-200 rounded-lg shadow-lg max-h-52 overflow-y-auto mt-1">
+                    {clienteSugestoes.map(c => (
+                      <button
+                        key={c.id}
+                        type="button"
+                        className="w-full text-left px-3 py-2 text-sm hover:bg-blue-50 border-b border-slate-100 last:border-0"
+                        onMouseDown={() => selecionarCliente(c)}
+                      >
+                        <span className="font-medium text-slate-800">{c.nome_fantasia || c.nome}</span>
+                        {c.nome_fantasia && (
+                          <span className="text-slate-400 text-xs ml-2 block">{c.nome}</span>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {!formData.clienteId && clienteSearch.trim() && (
+                  <p className="text-xs text-amber-600 mt-1">Selecione um cliente da lista para confirmar</p>
+                )}
+              </div>
             ) : (
               <div className="space-y-2">
                 <Input

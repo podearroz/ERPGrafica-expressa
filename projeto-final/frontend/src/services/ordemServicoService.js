@@ -37,6 +37,18 @@ export const ordemServicoService = {
     return data;
   },
 
+  async search(term) {
+    const q = `%${term}%`;
+    const { data, error } = await supabase
+      .from("ordens_servico")
+      .select(`*, cliente:clientes(id, nome, cpf_cnpj, telefone), itens:itens_os(*)`)
+      .or(`numero_os.ilike.${q},cliente_nome.ilike.${q}`)
+      .order("data_abertura", { ascending: false })
+      .limit(100);
+    if (error) throw error;
+    return data || [];
+  },
+
   async getById(id) {
     const { data, error } = await supabase
       .from("ordens_servico")
