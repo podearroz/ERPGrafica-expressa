@@ -106,9 +106,9 @@ const Relatorios = () => {
     localStorage.setItem('extrato_saldo_anterior', v);
   };
 
-  // Cada aba tem seu próprio período — padrão: mês atual
-  const [dateFrom, setDateFrom] = useState(primeiroDiaMes());
-  const [dateTo,   setDateTo]   = useState(ultimoDiaMes());
+  // Cada aba tem seu próprio período — padrão: hoje
+  const [dateFrom, setDateFrom] = useState(today());
+  const [dateTo,   setDateTo]   = useState(today());
 
   const setPeriodo = (from, to) => { setDateFrom(from); setDateTo(to); };
 
@@ -194,6 +194,21 @@ const Relatorios = () => {
     .filter(p => p.data < today())
     .reduce((s, p) => s + parseFloat(p.valor || 0), 0);
 
+  // ── Vendas em Aberto (pendentes) filtradas pelo período ───────────────────
+  const getClienteNomeVenda = (v) => v.cliente?.nome || v.cliente_nome || '(Avulso)';
+  const vendasAberto = useMemo(() => {
+    return vendas
+      .filter(v => v.status === 'Pendente')
+      .filter(v => {
+        if (dateFrom && v.data < dateFrom) return false;
+        if (dateTo   && v.data > dateTo)   return false;
+        return true;
+      })
+      .sort((a, b) => (b.data || '').localeCompare(a.data || ''));
+  }, [vendas, dateFrom, dateTo]);
+
+  const totalVendasAberto = vendasAberto.reduce((s, v) => s + parseFloat(v.valor || 0), 0);
+
   const handlePrint = () => {
     const fmt  = (v) => parseFloat(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     const fdt  = (d) => d ? new Date(d + 'T00:00:00').toLocaleDateString('pt-BR') : '—';
@@ -258,6 +273,23 @@ const Relatorios = () => {
           <td style="text-align:right;color:#dc2626;font-weight:600">R$ ${fmt(p.valor)}</td>
         </tr>`).join('');
       tfoot = `<tr style="border-top:2px solid #334155"><td colspan="3" style="text-align:right;font-weight:700">Total:</td><td style="text-align:right;font-weight:700;color:#dc2626;font-size:12px">R$ ${fmt(contasPagar.reduce((s,p)=>s+parseFloat(p.valor||0),0))}</td></tr>`;
+    } else if (aba === 'vendas_aberto') {
+      titulo = `Vendas em Aberto — ${fdt(dateFrom)} a ${fdt(dateTo)}`;
+      thead = `<tr><th style="width:60px">Data</th><th>Cliente</th><th>Produtos/Serviços</th><th style="width:60px;text-align:center">OS</th><th style="width:60px;text-align:center">Status</th><th style="width:80px;text-align:right">Valor</th></tr>`;
+      tbody = vendasAberto.map(v => {
+        const nome = v.cliente?.nome || v.cliente_nome || '(Avulso)';
+        const os = v.ordens_servico?.[0]?.numero_os || '—';
+        return `
+        <tr>
+          <td>${fdt(v.data)}</td>
+          <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${nome}</td>
+          <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${v.produtos || '—'}</td>
+          <td style="text-align:center">${os}</td>
+          <td style="text-align:center">${v.status}</td>
+          <td style="text-align:right;color:#15803d;font-weight:600">R$ ${fmt(v.valor)}</td>
+        </tr>`;
+      }).join('');
+      tfoot = `<tr style="border-top:2px solid #334155"><td colspan="5" style="text-align:right;font-weight:700">Total em Aberto:</td><td style="text-align:right;font-weight:700;color:#dc2626;font-size:12px">R$ ${fmt(totalVendasAberto)}</td></tr>`;
     } else {
       // Resumo Geral — usa window.print() simples
       window.print();
@@ -358,11 +390,12 @@ const Relatorios = () => {
   };
 
   const abas = [
-    { key: 'recebidas', label: `Contas Recebidas (${contasRecebidas.length})` },
-    { key: 'receber',   label: `Contas a Receber (${contasReceber.length})` },
-    { key: 'pagar',     label: `Pagamento de Contas (${contasPagar.length})` },
-    { key: 'extrato',   label: 'Extrato / Caixa' },
-    { key: 'resumo',    label: 'Resumo Geral' },
+    { key: 'recebidas',     label: `Contas Recebidas (${contasRecebidas.length})` },
+    { key: 'receber',       label: `Contas a Receber (${contasReceber.length})` },
+    { key: 'pagar',         label: `Pagamento de Contas (${contasPagar.length})` },
+    { key: 'vendas_aberto', label: `Vendas em Aberto (${vendasAberto.length})` },
+    { key: 'extrato',       label: 'Extrato / Caixa' },
+    { key: 'resumo',        label: 'Resumo Geral' },
   ];
 
   return (
@@ -855,6 +888,104 @@ const Relatorios = () => {
                       </td>
                       <td className="px-4 py-3 text-right font-bold text-green-700 text-base">
                         R$ {fmtMoney(totalReceber)}
+                      </td>
+                    </tr>
+                  </tfoot>
+                )}
+              </table>
+            </div>
+          </Card>
+        </>
+      )}
+
+      {/* ── ABA: VENDAS EM ABERTO ────────────────────────────────────────── */}
+      {aba === 'vendas_aberto' && (
+        <>
+          <div className="grid grid-cols-3 gap-4">
+            <div className="bg-orange-50 border border-orange-200 rounded-xl p-4">
+              <p className="text-sm text-orange-700 font-medium flex items-center gap-1">
+                <AlertCircle className="w-4 h-4" /> Total em Aberto
+              </p>
+              <p className="text-2xl font-bold text-orange-700 mt-1">R$ {fmtMoney(totalVendasAberto)}</p>
+              <p className="text-xs text-orange-500 mt-1">{vendasAberto.length} venda(s) pendente(s)</p>
+            </div>
+            <div className="bg-slate-50 border border-slate-200 rounded-xl p-4">
+              <p className="text-sm text-slate-500 font-medium">Período</p>
+              <p className="text-base font-semibold text-slate-700 mt-1">
+                {fmtDate(dateFrom)} até {fmtDate(dateTo)}
+              </p>
+            </div>
+            <div className="bg-blue-50 border border-blue-100 rounded-xl p-4">
+              <p className="text-sm text-blue-600 font-medium">Ticket Médio</p>
+              <p className="text-2xl font-bold text-blue-700 mt-1">
+                R$ {fmtMoney(vendasAberto.length > 0 ? totalVendasAberto / vendasAberto.length : 0)}
+              </p>
+              <p className="text-xs text-blue-400 mt-1">por venda em aberto</p>
+            </div>
+          </div>
+
+          <Card>
+            <div className="p-4 border-b border-slate-100">
+              <h3 className="font-semibold text-slate-700">
+                Vendas em Aberto — {fmtDate(dateFrom)} até {fmtDate(dateTo)}
+              </h3>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-slate-50 text-slate-600">
+                  <tr>
+                    <th className="px-4 py-3 text-left font-semibold">Data</th>
+                    <th className="px-4 py-3 text-left font-semibold">Cliente</th>
+                    <th className="px-4 py-3 text-left font-semibold">Produtos/Serviços</th>
+                    <th className="px-4 py-3 text-center font-semibold">OS</th>
+                    <th className="px-4 py-3 text-center font-semibold">Status</th>
+                    <th className="px-4 py-3 text-right font-semibold">Valor</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {vendasAberto.length > 0 ? vendasAberto.map(v => (
+                    <tr key={v.id} className="border-t hover:bg-slate-50">
+                      <td className="px-4 py-3 text-slate-600 whitespace-nowrap">
+                        {fmtDate(v.data)}
+                      </td>
+                      <td className="px-4 py-3 text-slate-800 font-medium">
+                        {getClienteNomeVenda(v)}
+                        {v.cliente_telefone && (
+                          <span className="block text-xs text-slate-400">{v.cliente_telefone}</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-slate-600 max-w-xs truncate" title={v.produtos}>
+                        {v.produtos || '—'}
+                      </td>
+                      <td className="px-4 py-3 text-center text-slate-500 text-xs font-medium">
+                        {v.ordens_servico?.[0]?.numero_os || '—'}
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-700">
+                          {v.status}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-right font-bold text-orange-700">
+                        R$ {fmtMoney(v.valor)}
+                      </td>
+                    </tr>
+                  )) : (
+                    <tr>
+                      <td colSpan={6} className="px-4 py-10 text-center text-slate-400">
+                        <CheckCircle className="w-8 h-8 mx-auto mb-2 opacity-40" />
+                        Nenhuma venda em aberto no período selecionado
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+                {vendasAberto.length > 0 && (
+                  <tfoot className="bg-orange-50 border-t-2 border-orange-200">
+                    <tr>
+                      <td colSpan={5} className="px-4 py-3 font-semibold text-slate-700 text-right">
+                        Total em Aberto:
+                      </td>
+                      <td className="px-4 py-3 text-right font-bold text-orange-700 text-base">
+                        R$ {fmtMoney(totalVendasAberto)}
                       </td>
                     </tr>
                   </tfoot>
