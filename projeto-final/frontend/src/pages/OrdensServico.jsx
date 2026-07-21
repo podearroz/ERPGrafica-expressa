@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ClipboardList, CheckCircle, XCircle, FileText, Eye, Trash2, Printer, Search, DollarSign, Banknote } from 'lucide-react';
+import { ClipboardList, CheckCircle, XCircle, FileText, Eye, Trash2, Printer, Search, DollarSign, Banknote, History } from 'lucide-react';
 
 const FORMAS_PAGAMENTO = ['Dinheiro', 'PIX', 'Cartão de Débito', 'Cartão de Crédito', 'Boleto', 'Cheque', 'Transferência'];
 import useOrdemServicoStore from '@store/ordemServicoStore';
@@ -189,6 +189,7 @@ const OrdensServico = () => {
   const { ordensServico, loading, fetchOrdensServico, faturarOS, cancelarOS, deleteOS } = useOrdemServicoStore();
 
   const [filtroStatus, setFiltroStatus] = useState('TODOS');
+  const [mostrarVhsys, setMostrarVhsys] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [isSearching, setIsSearching] = useState(false);
@@ -217,12 +218,12 @@ const OrdensServico = () => {
   });
 
   useEffect(() => {
-    fetchOrdensServico();
-    const onVisible = () => { if (!document.hidden) fetchOrdensServico(); };
+    fetchOrdensServico(mostrarVhsys);
+    const onVisible = () => { if (!document.hidden) fetchOrdensServico(mostrarVhsys); };
     document.addEventListener('visibilitychange', onVisible);
-    const interval = setInterval(fetchOrdensServico, 60000);
+    const interval = setInterval(() => fetchOrdensServico(mostrarVhsys), 60000);
     return () => { document.removeEventListener('visibilitychange', onVisible); clearInterval(interval); };
-  }, []);
+  }, [mostrarVhsys]);
 
   // Busca server-side quando o usuário digita (resolve limite de 1000 linhas)
   useEffect(() => {
@@ -255,6 +256,7 @@ const OrdensServico = () => {
 
   const ordens = (filtroStatus === 'TODOS' ? baseList : baseList.filter((os) => os.status === filtroStatus))
     .filter((os) => {
+      if (!mostrarVhsys && os.fonte === 'VHSYS') return false;
       if (dateFrom && os.data_abertura < dateFrom) return false;
       if (dateTo && os.data_abertura > dateTo) return false;
       if (cpfNorm) {
@@ -463,6 +465,18 @@ const OrdensServico = () => {
                 onChange={(e) => { setCpfFilter(e.target.value); resetPage(); }}
                 className="py-1.5 px-3 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 w-40"
               />
+              <button
+                onClick={() => { setMostrarVhsys(v => !v); resetPage(); }}
+                title="Mostrar/ocultar histórico importado do VHSYS"
+                className={`flex items-center gap-1 px-2 py-1.5 text-xs rounded-lg border transition-colors ${
+                  mostrarVhsys
+                    ? 'bg-amber-100 border-amber-300 text-amber-800'
+                    : 'bg-white border-slate-300 text-slate-500 hover:text-slate-700'
+                }`}
+              >
+                <History className="w-3.5 h-3.5" />
+                Histórico VHSYS
+              </button>
               {(searchTerm || dateFrom || dateTo || cpfFilter) && (
                 <button
                   onClick={() => { setSearchTerm(''); setDateFrom(''); setDateTo(''); setCpfFilter(''); resetPage(); }}
@@ -491,8 +505,17 @@ const OrdensServico = () => {
         <Table headers={headers}>
           {pagedOrdens.length > 0 ? (
             pagedOrdens.map((os) => (
-              <tr key={os.id} className="hover:bg-slate-50">
-                <td className="px-6 py-4 text-sm font-mono font-medium text-slate-800">{os.numero_os}</td>
+              <tr key={os.id} className={`hover:bg-slate-50 ${os.fonte === 'VHSYS' ? 'opacity-80' : ''}`}>
+                <td className="px-6 py-4 text-sm font-mono font-medium text-slate-800">
+                  <div className="flex items-center gap-1.5">
+                    {os.numero_os}
+                    {os.fonte === 'VHSYS' && (
+                      <span className="px-1.5 py-0.5 rounded text-xs font-semibold bg-amber-100 text-amber-700 leading-none">
+                        VHSYS
+                      </span>
+                    )}
+                  </div>
+                </td>
                 <td className="px-6 py-4 text-sm text-slate-600">
                   {new Date(os.data_abertura + 'T00:00:00').toLocaleDateString('pt-BR')}
                 </td>

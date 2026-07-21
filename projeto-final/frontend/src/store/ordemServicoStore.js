@@ -6,10 +6,12 @@ const useOrdemServicoStore = create((set, get) => ({
   loading: false,
   error: null,
 
-  fetchOrdensServico: async () => {
+  fetchOrdensServico: async (comHistorico = false) => {
     set({ loading: true, error: null });
     try {
-      const data = await ordemServicoService.getAll();
+      const data = comHistorico
+        ? await ordemServicoService.getAllComHistorico()
+        : await ordemServicoService.getAll();
       set({ ordensServico: data, loading: false });
     } catch (error) {
       set({ error: error.message, loading: false });

@@ -31,6 +31,21 @@ export const ordemServicoService = {
         cliente:clientes(id, nome, cpf_cnpj, telefone),
         itens:itens_os(*)
       `)
+      .or("fonte.is.null,fonte.neq.VHSYS")  // exclui histórico VHSYS da listagem padrão
+      .order("data_abertura", { ascending: false })
+      .order("created_at", { ascending: false });
+    if (error) throw error;
+    return data;
+  },
+
+  async getAllComHistorico() {
+    const { data, error } = await supabase
+      .from("ordens_servico")
+      .select(`
+        *,
+        cliente:clientes(id, nome, cpf_cnpj, telefone),
+        itens:itens_os(*)
+      `)
       .order("data_abertura", { ascending: false })
       .order("created_at", { ascending: false });
     if (error) throw error;
