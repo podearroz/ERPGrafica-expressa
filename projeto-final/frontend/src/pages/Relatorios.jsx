@@ -219,6 +219,7 @@ const Relatorios = () => {
     let thead = '';
     let tbody = '';
     let tfoot = '';
+    let summaryHtml = '';
 
     if (aba === 'extrato') {
       titulo = `Extrato / Caixa — ${fdt(dateFrom)} a ${fdt(dateTo)}${contaFiltro !== 'TODOS' ? ` — ${contaFiltro}` : ''}`;
@@ -232,11 +233,33 @@ const Relatorios = () => {
           <td style="text-align:right;color:#15803d">${m.entrada > 0 ? 'R$ ' + fmt(m.entrada) : '—'}</td>
           <td style="text-align:right;color:#dc2626">${m.saida > 0 ? 'R$ ' + fmt(m.saida) : '—'}</td>
         </tr>`).join('');
-      tfoot = `
-        <tr><td colspan="4" style="text-align:right;color:#64748b">Saldo Anterior:</td><td colspan="2" style="text-align:right;font-weight:600">R$ ${fmt(saldoAnteriorNum)}</td></tr>
-        <tr><td colspan="4" style="text-align:right;color:#64748b">Entradas:</td><td colspan="2" style="text-align:right;font-weight:600;color:#15803d">R$ ${fmt(totalEntradasExtrato)}</td></tr>
-        <tr><td colspan="4" style="text-align:right;color:#64748b">Saídas:</td><td colspan="2" style="text-align:right;font-weight:600;color:#dc2626">R$ ${fmt(totalSaidasExtrato)}</td></tr>
-        <tr style="border-top:2px solid #334155"><td colspan="4" style="text-align:right;font-weight:700;font-size:11px">Saldo Final:</td><td colspan="2" style="text-align:right;font-weight:700;font-size:12px;color:${saldoFinal >= 0 ? '#1d4ed8' : '#dc2626'}">R$ ${fmt(saldoFinal)}</td></tr>`;
+      tfoot = '';
+      const nEntradas = movimentosExtrato.filter(m => m.entrada > 0).length;
+      const nSaidas   = movimentosExtrato.filter(m => m.saida > 0).length;
+      const corSaldo  = saldoFinal >= 0 ? '#1d4ed8' : '#dc2626';
+      const corPeriodo = saldoPeriodo >= 0 ? '#15803d' : '#dc2626';
+      summaryHtml = `
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:10px">
+          <div style="border:1px solid #e2e8f0;border-radius:8px;padding:10px">
+            <p style="font-size:7.5px;color:#64748b;font-weight:600;text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">Saldo Anterior</p>
+            <p style="font-size:14px;font-weight:700;color:#1e293b">R$ ${fmt(saldoAnteriorNum)}</p>
+          </div>
+          <div style="border:1px solid #bbf7d0;border-radius:8px;padding:10px;background:#f0fdf4">
+            <p style="font-size:7.5px;color:#16a34a;font-weight:600;text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">⊕ Entradas</p>
+            <p style="font-size:14px;font-weight:700;color:#15803d">R$ ${fmt(totalEntradasExtrato)}</p>
+            <p style="font-size:7px;color:#16a34a;margin-top:2px">${nEntradas} lançamento(s)</p>
+          </div>
+          <div style="border:1px solid #fecaca;border-radius:8px;padding:10px;background:#fff1f2">
+            <p style="font-size:7.5px;color:#dc2626;font-weight:600;text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">⊖ Saídas</p>
+            <p style="font-size:14px;font-weight:700;color:#dc2626">R$ ${fmt(totalSaidasExtrato)}</p>
+            <p style="font-size:7px;color:#dc2626;margin-top:2px">${nSaidas} lançamento(s)</p>
+          </div>
+          <div style="border:1px solid #bfdbfe;border-radius:8px;padding:10px;background:#eff6ff">
+            <p style="font-size:7.5px;color:#2563eb;font-weight:600;text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">Saldo Final</p>
+            <p style="font-size:14px;font-weight:700;color:${corSaldo}">R$ ${fmt(saldoFinal)}</p>
+            <p style="font-size:7px;color:${corPeriodo};margin-top:2px">Período: ${saldoPeriodo >= 0 ? '+' : ''}R$ ${fmt(saldoPeriodo)}</p>
+          </div>
+        </div>`;
     } else if (aba === 'recebidas') {
       titulo = `Contas Recebidas — ${fdt(dateFrom)} a ${fdt(dateTo)}`;
       thead = `<tr><th style="width:60px">Data Rec.</th><th>Descrição</th><th>Cliente</th><th style="width:70px">Conta</th><th style="width:80px;text-align:right">Valor</th></tr>`;
@@ -318,6 +341,7 @@ const Relatorios = () => {
 <body>
   <h1>Gráfica Express — ${titulo}</h1>
   <p class="sub">Gerado em ${now} | CNPJ 07.240.770/0001-50</p>
+  ${summaryHtml}
   <table>
     <thead>${thead}</thead>
     <tbody>${tbody || '<tr><td colspan="6" style="text-align:center;padding:12px;color:#94a3b8">Nenhum lançamento no período</td></tr>'}</tbody>
