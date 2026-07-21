@@ -402,7 +402,7 @@ const Relatorios = () => {
 
   const totalEntradasExtrato = movimentosExtrato.reduce((s, m) => s + m.entrada, 0);
   const totalSaidasExtrato   = movimentosExtrato.reduce((s, m) => s + m.saida, 0);
-  const saldoAnteriorNum     = parseFloat(saldoAnterior.replace(',', '.') || 0);
+  const saldoAnteriorNum     = parseFloat(saldoAnterior.replace(/\./g, '').replace(',', '.') || 0);
   const saldoPeriodo         = totalEntradasExtrato - totalSaidasExtrato;
   const saldoFinal           = saldoAnteriorNum + saldoPeriodo;
 
