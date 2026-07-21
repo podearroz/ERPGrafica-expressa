@@ -5,7 +5,8 @@ dist/
 # Logs e arquivos temporários
 *.txt
 *.csv
-databases/
+databases/*
+!databases/*.py
 
 # Arquivos fora do projeto
 *.pdf
