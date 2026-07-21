@@ -234,7 +234,9 @@ const OrdensServico = () => {
     setIsSearching(true);
     const timer = setTimeout(async () => {
       try {
-        const data = await ordemServicoService.search(searchTerm);
+        const data = mostrarVhsys
+          ? await ordemServicoService.searchVhsys(searchTerm)
+          : await ordemServicoService.search(searchTerm);
         setSearchResults(data);
       } catch (e) {
         console.error(e);
@@ -243,7 +245,7 @@ const OrdensServico = () => {
       }
     }, 400);
     return () => clearTimeout(timer);
-  }, [searchTerm]);
+  }, [searchTerm, mostrarVhsys]);
 
   const resetPage = () => setCurrentPage(1);
   const handleSearch = (v) => { setSearchTerm(v); resetPage(); };

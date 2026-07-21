@@ -39,6 +39,7 @@ export const ordemServicoService = {
   },
 
   async getAllComHistorico() {
+    // Busca apenas OS do VHSYS (histórico importado)
     const { data, error } = await supabase
       .from("ordens_servico")
       .select(`
@@ -46,6 +47,7 @@ export const ordemServicoService = {
         cliente:clientes(id, nome, cpf_cnpj, telefone),
         itens:itens_os(*)
       `)
+      .eq("fonte", "VHSYS")
       .order("data_abertura", { ascending: false })
       .order("created_at", { ascending: false });
     if (error) throw error;
@@ -58,6 +60,20 @@ export const ordemServicoService = {
       .from("ordens_servico")
       .select(`*, cliente:clientes(id, nome, cpf_cnpj, telefone), itens:itens_os(*)`)
       .or(`numero_os.ilike.${q},cliente_nome.ilike.${q}`)
+      .or("fonte.is.null,fonte.neq.VHSYS")
+      .order("data_abertura", { ascending: false })
+      .limit(100);
+    if (error) throw error;
+    return data || [];
+  },
+
+  async searchVhsys(term) {
+    const q = `%${term}%`;
+    const { data, error } = await supabase
+      .from("ordens_servico")
+      .select(`*, cliente:clientes(id, nome, cpf_cnpj, telefone), itens:itens_os(*)`)
+      .or(`numero_os.ilike.${q},cliente_nome.ilike.${q}`)
+      .eq("fonte", "VHSYS")
       .order("data_abertura", { ascending: false })
       .limit(100);
     if (error) throw error;
