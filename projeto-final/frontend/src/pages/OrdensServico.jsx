@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ClipboardList, CheckCircle, XCircle, FileText, Eye, Trash2, Printer, Search, DollarSign, Banknote, History } from 'lucide-react';
+import { ClipboardList, CheckCircle, XCircle, FileText, Eye, Trash2, Printer, Search, DollarSign, Banknote } from 'lucide-react';
 
 const FORMAS_PAGAMENTO = ['Dinheiro', 'PIX', 'Cartão de Débito', 'Cartão de Crédito', 'Boleto', 'Cheque', 'Transferência'];
 import useOrdemServicoStore from '@store/ordemServicoStore';
@@ -189,7 +189,6 @@ const OrdensServico = () => {
   const { ordensServico, loading, fetchOrdensServico, faturarOS, cancelarOS, deleteOS } = useOrdemServicoStore();
 
   const [filtroStatus, setFiltroStatus] = useState('TODOS');
-  const [mostrarVhsys, setMostrarVhsys] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [isSearching, setIsSearching] = useState(false);
@@ -218,12 +217,12 @@ const OrdensServico = () => {
   });
 
   useEffect(() => {
-    fetchOrdensServico(mostrarVhsys);
-    const onVisible = () => { if (!document.hidden) fetchOrdensServico(mostrarVhsys); };
+    fetchOrdensServico();
+    const onVisible = () => { if (!document.hidden) fetchOrdensServico(); };
     document.addEventListener('visibilitychange', onVisible);
-    const interval = setInterval(() => fetchOrdensServico(mostrarVhsys), 60000);
+    const interval = setInterval(fetchOrdensServico, 60000);
     return () => { document.removeEventListener('visibilitychange', onVisible); clearInterval(interval); };
-  }, [mostrarVhsys]);
+  }, []);
 
   // Busca server-side quando o usuário digita (resolve limite de 1000 linhas)
   useEffect(() => {
@@ -234,9 +233,7 @@ const OrdensServico = () => {
     setIsSearching(true);
     const timer = setTimeout(async () => {
       try {
-        const data = mostrarVhsys
-          ? await ordemServicoService.searchVhsys(searchTerm)
-          : await ordemServicoService.search(searchTerm);
+        const data = await ordemServicoService.search(searchTerm);
         setSearchResults(data);
       } catch (e) {
         console.error(e);
@@ -245,7 +242,7 @@ const OrdensServico = () => {
       }
     }, 400);
     return () => clearTimeout(timer);
-  }, [searchTerm, mostrarVhsys]);
+  }, [searchTerm]);
 
   const resetPage = () => setCurrentPage(1);
   const handleSearch = (v) => { setSearchTerm(v); resetPage(); };
@@ -258,7 +255,6 @@ const OrdensServico = () => {
 
   const ordens = (filtroStatus === 'TODOS' ? baseList : baseList.filter((os) => os.status === filtroStatus))
     .filter((os) => {
-      if (!mostrarVhsys && os.fonte === 'VHSYS') return false;
       if (dateFrom && os.data_abertura < dateFrom) return false;
       if (dateTo && os.data_abertura > dateTo) return false;
       if (cpfNorm) {
@@ -467,18 +463,6 @@ const OrdensServico = () => {
                 onChange={(e) => { setCpfFilter(e.target.value); resetPage(); }}
                 className="py-1.5 px-3 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 w-40"
               />
-              <button
-                onClick={() => { setMostrarVhsys(v => !v); resetPage(); }}
-                title="Mostrar/ocultar histórico importado do VHSYS"
-                className={`flex items-center gap-1 px-2 py-1.5 text-xs rounded-lg border transition-colors ${
-                  mostrarVhsys
-                    ? 'bg-amber-100 border-amber-300 text-amber-800'
-                    : 'bg-white border-slate-300 text-slate-500 hover:text-slate-700'
-                }`}
-              >
-                <History className="w-3.5 h-3.5" />
-                Histórico VHSYS
-              </button>
               {(searchTerm || dateFrom || dateTo || cpfFilter) && (
                 <button
                   onClick={() => { setSearchTerm(''); setDateFrom(''); setDateTo(''); setCpfFilter(''); resetPage(); }}
