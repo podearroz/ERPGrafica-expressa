@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Plus, Edit, Trash2, Save, CheckCircle, Search } from 'lucide-react';
 import useVendaStore from '@store/vendaStore';
 import useClienteStore from '@store/clienteStore';
+import useRecebimentoStore from '@store/recebimentoStore';
 import { clienteService } from '@services/clienteService';
 import Card from '@components/common/Card';
 import Pagination from '@components/common/Pagination';
@@ -38,6 +39,7 @@ const formatarMoeda = (digits) => {
 const Vendas = () => {
   const { vendas, addVenda, updateVenda, deleteVenda, fetchVendas, loading } = useVendaStore();
   const { clientes, fetchClientes } = useClienteStore();
+  const { fetchRecebimentos } = useRecebimentoStore();
 
   useEffect(() => {
     fetchVendas();
@@ -199,6 +201,7 @@ const Vendas = () => {
         } catch { /* OS sync opcional */ }
         try {
           await recebimentoService.atualizarDeVenda(editingVenda.id, vendaData, nomeDisplay);
+          fetchRecebimentos();
         } catch { /* Recebimento sync opcional */ }
         toast.success('Venda atualizada com sucesso!');
       } else {
