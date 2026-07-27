@@ -141,16 +141,43 @@ const Relatorios = () => {
   const recebimentosPorCategoria = getRecebimentosByCategoria();
   const pagamentosPorCategoria = getPagamentosByCategoria();
 
-  // ── Contas Recebidas (já baixadas) filtradas pelo período ─────────────────
+  // ── Contas Recebidas (vendas baixadas) filtradas pelo período ────────────
+  const extrairNumOS = (r) => {
+    if (r.descricao) {
+      const m = r.descricao.match(/^(OS-\d+)/);
+      if (m) return m[1];
+    }
+    return r.venda_id ? `V-${r.venda_id}` : '—';
+  };
+
   const contasRecebidas = useMemo(() => {
-    return recebimentos
+    const vendaRecs = recebimentos
       .filter(r => r.status === 'Recebido')
+      .filter(r => r.categoria === 'Venda' || r.venda_id)
       .filter(r => {
         const dataEf = r.data_recebimento || r.data;
         if (dateFrom && dataEf < dateFrom) return false;
         if (dateTo   && dataEf > dateTo)   return false;
         return true;
-      })
+      });
+
+    // Dedup por venda_id — soma parcelas do mesmo pedido
+    const byVendaId = new Map();
+    const semVenda = [];
+    for (const r of vendaRecs) {
+      if (r.venda_id) {
+        if (!byVendaId.has(r.venda_id)) {
+          byVendaId.set(r.venda_id, { ...r });
+        } else {
+          const existing = byVendaId.get(r.venda_id);
+          existing.valor = parseFloat(existing.valor || 0) + parseFloat(r.valor || 0);
+        }
+      } else {
+        semVenda.push(r);
+      }
+    }
+
+    return [...byVendaId.values(), ...semVenda]
       .sort((a, b) => {
         const da = a.data_recebimento || a.data || '';
         const db = b.data_recebimento || b.data || '';
@@ -262,16 +289,15 @@ const Relatorios = () => {
         </div>`;
     } else if (aba === 'recebidas') {
       titulo = `Contas Recebidas — ${fdt(dateFrom)} a ${fdt(dateTo)}`;
-      thead = `<tr><th style="width:60px">Data Rec.</th><th>Descrição</th><th>Cliente</th><th style="width:70px">Conta</th><th style="width:80px;text-align:right">Valor</th></tr>`;
+      thead = `<tr><th style="width:70px">Data Rec.</th><th>Cliente</th><th style="width:90px;text-align:center">Nº OS / Venda</th><th style="width:90px;text-align:right">Valor Recebido</th></tr>`;
       tbody = contasRecebidas.map(r => `
         <tr>
           <td>${fdt(r.data_recebimento || r.data)}</td>
-          <td style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.descricao || '—'}</td>
-          <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.cliente_nome || '—'}</td>
-          <td style="text-align:center;font-weight:600">${r.conta_bancaria || '—'}</td>
+          <td style="max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.cliente_nome || r.venda?.cliente?.nome || '—'}</td>
+          <td style="text-align:center;font-family:monospace;font-weight:600">${extrairNumOS(r)}</td>
           <td style="text-align:right;color:#15803d;font-weight:600">R$ ${fmt(r.valor)}</td>
         </tr>`).join('');
-      tfoot = `<tr style="border-top:2px solid #334155"><td colspan="4" style="text-align:right;font-weight:700">Total Recebido:</td><td style="text-align:right;font-weight:700;color:#15803d;font-size:12px">R$ ${fmt(totalRecebido)}</td></tr>`;
+      tfoot = `<tr style="border-top:2px solid #334155"><td colspan="3" style="text-align:right;font-weight:700">Total Recebido:</td><td style="text-align:right;font-weight:700;color:#15803d;font-size:12px">R$ ${fmt(totalRecebido)}</td></tr>`;
     } else if (aba === 'receber') {
       titulo = `Contas a Receber — ${fdt(dateFrom)} a ${fdt(dateTo)}`;
       thead = `<tr><th style="width:60px">Vencimento</th><th>Descrição</th><th>Cliente</th><th style="width:60px;text-align:center">Parcela</th><th style="width:60px;text-align:center">Status</th><th style="width:80px;text-align:right">Valor</th></tr>`;
@@ -606,10 +632,8 @@ const Relatorios = () => {
                   <tr>
                     <th className="px-4 py-3 text-left font-semibold">Data Recebimento</th>
                     <th className="px-4 py-3 text-left font-semibold">Cliente</th>
-                    <th className="px-4 py-3 text-left font-semibold">Descrição</th>
-                    <th className="px-4 py-3 text-center font-semibold">Forma</th>
-                    <th className="px-4 py-3 text-center font-semibold">Conta</th>
-                    <th className="px-4 py-3 text-right font-semibold">Valor</th>
+                    <th className="px-4 py-3 text-center font-semibold">Nº OS / Venda</th>
+                    <th className="px-4 py-3 text-right font-semibold">Valor Recebido</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -621,16 +645,8 @@ const Relatorios = () => {
                       <td className="px-4 py-3 text-slate-800 font-medium">
                         {r.cliente_nome || r.venda?.cliente?.nome || '—'}
                       </td>
-                      <td className="px-4 py-3 text-slate-600 max-w-xs truncate" title={r.descricao}>
-                        {r.descricao}
-                      </td>
-                      <td className="px-4 py-3 text-center text-slate-500 text-xs">
-                        {r.forma_recebimento || '—'}
-                      </td>
-                      <td className="px-4 py-3 text-center">
-                        <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${CONTA_CORES[r.conta_bancaria] || 'bg-slate-100 text-slate-600'}`}>
-                          {r.conta_bancaria || '—'}
-                        </span>
+                      <td className="px-4 py-3 text-center font-mono text-slate-700 text-sm">
+                        {extrairNumOS(r)}
                       </td>
                       <td className="px-4 py-3 text-right font-bold text-green-700">
                         R$ {fmtMoney(r.valor)}
@@ -638,7 +654,7 @@ const Relatorios = () => {
                     </tr>
                   )) : (
                     <tr>
-                      <td colSpan={6} className="px-4 py-10 text-center text-slate-400">
+                      <td colSpan={4} className="px-4 py-10 text-center text-slate-400">
                         <CheckCircle className="w-8 h-8 mx-auto mb-2 opacity-40" />
                         Nenhum recebimento no período selecionado
                       </td>
@@ -648,7 +664,7 @@ const Relatorios = () => {
                 {contasRecebidas.length > 0 && (
                   <tfoot className="bg-green-50 border-t-2 border-green-200">
                     <tr>
-                      <td colSpan={5} className="px-4 py-3 font-semibold text-slate-700 text-right">
+                      <td colSpan={3} className="px-4 py-3 font-semibold text-slate-700 text-right">
                         Total Recebido:
                       </td>
                       <td className="px-4 py-3 text-right font-bold text-green-700 text-base">
