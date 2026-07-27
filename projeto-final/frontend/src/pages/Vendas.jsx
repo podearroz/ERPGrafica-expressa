@@ -188,9 +188,18 @@ const Vendas = () => {
     try {
       if (editingVenda) {
         await updateVenda(editingVenda.id, vendaData);
+
+        const nomeDisplay =
+          formData.tipoCliente === 'avulso'
+            ? formData.clienteNome.trim()
+            : clientes.find((c) => c.id === formData.clienteId)?.nome || '';
+
         try {
           await ordemServicoService.atualizarDeVenda(editingVenda.id, vendaData);
         } catch { /* OS sync opcional */ }
+        try {
+          await recebimentoService.atualizarDeVenda(editingVenda.id, vendaData, nomeDisplay);
+        } catch { /* Recebimento sync opcional */ }
         toast.success('Venda atualizada com sucesso!');
       } else {
         const novaVenda = await addVenda(vendaData);

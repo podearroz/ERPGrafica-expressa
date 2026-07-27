@@ -54,6 +54,44 @@ export const recebimentoService = {
     });
   },
 
+  async atualizarDeVenda(vendaId, venda, clienteNome) {
+    // Busca o recebimento da venda (o principal, categoria=Venda)
+    const { data: rec } = await supabase
+      .from("recebimentos")
+      .select("id, status, descricao")
+      .eq("venda_id", vendaId)
+      .eq("categoria", "Venda")
+      .order("created_at", { ascending: true })
+      .limit(1)
+      .maybeSingle();
+
+    if (!rec) return null;
+
+    // Recupera o número da OS para manter o prefixo na descrição
+    const { data: os } = await supabase
+      .from("ordens_servico")
+      .select("numero_os")
+      .eq("venda_id", vendaId)
+      .maybeSingle();
+
+    const prefix = os?.numero_os ? `${os.numero_os} – ` : '';
+    const novaDescricao = `${prefix}Venda – ${venda.produtos || 'Produtos/Serviços'}`;
+
+    const updates = {
+      cliente_nome: clienteNome || null,
+      descricao: novaDescricao,
+      data: venda.data || null,
+      forma_recebimento: venda.forma_pagamento || null,
+    };
+
+    // Só atualiza o valor se o recebimento ainda não foi recebido
+    if (rec.status !== 'Recebido') {
+      updates.valor = parseFloat(venda.valor);
+    }
+
+    return recebimentoService.update(rec.id, updates);
+  },
+
   async marcarRecebido(id, { forma_recebimento, data_recebimento, observacao, conta_bancaria, desconto }) {
     const updates = {
       status: "Recebido",
