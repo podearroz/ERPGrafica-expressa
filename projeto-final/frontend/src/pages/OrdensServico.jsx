@@ -298,15 +298,46 @@ const OrdensServico = () => {
 
   const abrirBaixar = async (os) => {
     setOsSelecionada(os);
-    const { data: rec } = await supabase
+    let { data: rec } = await supabase
       .from('recebimentos')
       .select('*')
       .eq('os_id', os.id)
       .maybeSingle();
 
+    // Se não encontrou por os_id, tenta por venda_id (OS criadas pelo sistema)
+    if (!rec && os.venda_id) {
+      const { data: recVenda } = await supabase
+        .from('recebimentos')
+        .select('*')
+        .eq('venda_id', os.venda_id)
+        .maybeSingle();
+      rec = recVenda;
+    }
+
+    // Se ainda não tem recebimento (OS VHSYS ou OS sem recebimento), cria um pendente
     if (!rec) {
-      toast.error('Nenhum recebimento vinculado a esta OS.');
-      return;
+      const novoRec = {
+        os_id: os.id,
+        venda_id: os.venda_id || null,
+        valor: parseFloat(os.valor_final) || 0,
+        status: 'Não Pago',
+        tipo: 'entrada',
+        categoria: 'Venda',
+        descricao: `Ordem de Serviço ${os.numero_os}`,
+        cliente_nome: os.cliente_nome || null,
+        data: os.data_fechamento || new Date().toISOString().split('T')[0],
+      };
+      const { data: criado, error } = await supabase
+        .from('recebimentos')
+        .insert([novoRec])
+        .select()
+        .single();
+      if (error) {
+        toast.error('Erro ao criar recebimento: ' + error.message);
+        return;
+      }
+      rec = criado;
+      toast('Recebimento criado automaticamente para esta OS.', { icon: 'ℹ️' });
     }
     if (rec.status === 'Recebido') {
       toast(`Esta OS já foi baixada como Recebida em ${rec.data_recebimento ? new Date(rec.data_recebimento + 'T00:00:00').toLocaleDateString('pt-BR') : '(sem data)'} — ${rec.forma_recebimento || ''}.`, { icon: '✅' });
