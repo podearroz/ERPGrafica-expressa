@@ -207,6 +207,13 @@ const Relatorios = () => {
   const contasReceber = useMemo(() => {
     return recebimentos
       .filter(r => r.tipo === 'entrada' || !r.tipo)
+      // Apenas recebimentos vinculados a uma OS ou venda (exclui lançamentos financeiros genéricos)
+      .filter(r =>
+        r.os_id ||
+        r.venda_id ||
+        /^OS-\d+/.test(r.descricao || '') ||
+        /Ordem de Servi[çc]o\s+\d+/i.test(r.descricao || '')
+      )
       .filter(r => {
         if (dateFrom && r.data < dateFrom) return false;
         if (dateTo   && r.data > dateTo)   return false;
