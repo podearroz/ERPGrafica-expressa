@@ -110,6 +110,9 @@ const Relatorios = () => {
   const [dateFrom, setDateFrom] = useState(today());
   const [dateTo,   setDateTo]   = useState(today());
 
+  // Mês para aba de comissão — padrão: mês atual
+  const [mesComissao, setMesComissao] = useState(() => today().slice(0, 7));
+
   const setPeriodo = (from, to) => { setDateFrom(from); setDateTo(to); };
 
   const refreshAll = () => {
@@ -381,6 +384,28 @@ const Relatorios = () => {
             </div>
           </td>
         </tr>`;
+    } else if (aba === 'comissao') {
+      titulo = `OS Pagas — Comissão — ${nomeMesComissao}`;
+      thead = `<tr>
+        <th style="width:70px">Data Rec.</th>
+        <th style="width:70px;text-align:center">Nº OS</th>
+        <th>Cliente</th>
+        <th style="width:90px;text-align:center">Forma Pgto</th>
+        <th style="width:90px;text-align:right">Valor Recebido</th>
+      </tr>`;
+      tbody = osComissao.map(r => `
+        <tr>
+          <td>${fdt(r.data_recebimento || r.data)}</td>
+          <td style="text-align:center;font-family:monospace;font-weight:600">${extrairNumOS(r)}</td>
+          <td style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.cliente_nome || '—'}</td>
+          <td style="text-align:center">${r.forma_recebimento || '—'}</td>
+          <td style="text-align:right;color:#15803d;font-weight:600">R$ ${fmt(r.valor)}</td>
+        </tr>`).join('');
+      tfoot = `
+        <tr style="border-top:2px solid #334155">
+          <td colspan="4" style="text-align:right;font-weight:700">Total (${osComissao.length} OS):</td>
+          <td style="text-align:right;font-weight:700;color:#15803d;font-size:12px">R$ ${fmt(totalComissao)}</td>
+        </tr>`;
     } else if (aba === 'pagar') {
       titulo = `Pagamento de Contas — ${fdt(dateFrom)} a ${fdt(dateTo)}`;
       thead = `<tr><th style="width:60px">Vencimento</th><th>Descrição</th><th style="width:60px;text-align:center">Status</th><th style="width:80px;text-align:right">Valor</th></tr>`;
@@ -502,6 +527,31 @@ const Relatorios = () => {
   const saldoPeriodo         = totalEntradasExtrato - totalSaidasExtrato;
   const saldoFinal           = saldoAnteriorNum + saldoPeriodo;
 
+  // ── OS Pagas no mês (comissão) ────────────────────────────────────────────
+  const osComissao = useMemo(() => {
+    return recebimentos
+      .filter(r => r.status === 'Recebido')
+      .filter(r =>
+        r.os_id ||
+        r.venda_id ||
+        /^OS-\d+/.test(r.descricao || '') ||
+        /Ordem de Servi[çc]o\s+\d+/i.test(r.descricao || '')
+      )
+      .filter(r => {
+        const dataEf = r.data_recebimento || r.data;
+        return dataEf && dataEf.startsWith(mesComissao);
+      })
+      .sort((a, b) =>
+        (a.data_recebimento || a.data || '').localeCompare(b.data_recebimento || b.data || '')
+      );
+  }, [recebimentos, mesComissao]);
+
+  const totalComissao = osComissao.reduce((s, r) => s + parseFloat(r.valor || 0), 0);
+
+  const nomeMesComissao = mesComissao
+    ? new Date(mesComissao + '-15').toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })
+    : '';
+
   const CONTAS = ['TODOS', 'CAIXA', 'SICOOB', 'MAQUININHA'];
   const CONTA_CORES = {
     CAIXA:      'bg-green-100 text-green-700',
@@ -512,6 +562,7 @@ const Relatorios = () => {
   const abas = [
     { key: 'recebidas',     label: `Contas Recebidas (${contasRecebidas.length})` },
     { key: 'receber',       label: `Contas a Receber (${contasReceber.length})` },
+    { key: 'comissao',      label: `OS Pagas — Comissão (${osComissao.length})` },
     { key: 'pagar',         label: `Pagamento de Contas (${contasPagar.length})` },
     { key: 'vendas_aberto', label: `Vendas em Aberto (${vendasAberto.length})` },
     { key: 'extrato',       label: 'Extrato / Caixa' },
@@ -635,8 +686,15 @@ const Relatorios = () => {
                   {CONTAS.map(c => <option key={c} value={c}>{c === 'TODOS' ? 'Todas as contas' : c}</option>)}
                 </select>
               )}
-              {aba !== 'resumo' && <AtalhoPeriodo onSelect={setPeriodo} />}
-              {aba !== 'resumo' && (
+              {aba !== 'resumo' && aba !== 'comissao' && <AtalhoPeriodo onSelect={setPeriodo} />}
+              {aba === 'comissao' ? (
+                <input
+                  type="month"
+                  value={mesComissao}
+                  onChange={e => setMesComissao(e.target.value)}
+                  className="py-1.5 px-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              ) : aba !== 'resumo' && (
                 <>
                   <input
                     type="date"
@@ -1042,6 +1100,93 @@ const Relatorios = () => {
                             </div>
                           </div>
                         </div>
+                      </td>
+                    </tr>
+                  </tfoot>
+                )}
+              </table>
+            </div>
+          </Card>
+        </>
+      )}
+
+      {/* ── ABA: OS PAGAS — COMISSÃO ─────────────────────────────────────── */}
+      {aba === 'comissao' && (
+        <>
+          {/* Cards resumo */}
+          <div className="grid grid-cols-3 gap-4">
+            <div className="bg-green-50 border border-green-200 rounded-xl p-4">
+              <p className="text-xs text-green-700 font-semibold uppercase tracking-wide">Total Recebido no Mês</p>
+              <p className="text-2xl font-bold text-green-700 mt-1">R$ {fmtMoney(totalComissao)}</p>
+              <p className="text-xs text-green-500 mt-1">{osComissao.length} OS pagas</p>
+            </div>
+            <div className="bg-slate-50 border border-slate-200 rounded-xl p-4">
+              <p className="text-xs text-slate-500 font-semibold uppercase tracking-wide">Período</p>
+              <p className="text-lg font-bold text-slate-800 mt-1 capitalize">{nomeMesComissao}</p>
+            </div>
+            <div className="bg-blue-50 border border-blue-100 rounded-xl p-4">
+              <p className="text-xs text-blue-600 font-semibold uppercase tracking-wide">Ticket Médio</p>
+              <p className="text-2xl font-bold text-blue-700 mt-1">
+                R$ {fmtMoney(osComissao.length > 0 ? totalComissao / osComissao.length : 0)}
+              </p>
+              <p className="text-xs text-blue-400 mt-1">por OS</p>
+            </div>
+          </div>
+
+          <Card>
+            <div className="p-4 border-b border-slate-100 flex items-center justify-between">
+              <h3 className="font-semibold text-slate-700 capitalize">
+                OS Pagas — <span className="text-green-700">{nomeMesComissao}</span>
+              </h3>
+              <p className="text-xs text-slate-400">{osComissao.length} OS</p>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-slate-50 text-slate-600">
+                  <tr>
+                    <th className="px-4 py-3 text-left font-semibold whitespace-nowrap">Data Recebimento</th>
+                    <th className="px-4 py-3 text-center font-semibold whitespace-nowrap">Nº OS</th>
+                    <th className="px-4 py-3 text-left font-semibold">Cliente</th>
+                    <th className="px-4 py-3 text-center font-semibold whitespace-nowrap">Forma Pgto</th>
+                    <th className="px-4 py-3 text-right font-semibold whitespace-nowrap">Valor Recebido</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {osComissao.length > 0 ? osComissao.map(r => (
+                    <tr key={r.id} className="border-t hover:bg-slate-50">
+                      <td className="px-4 py-2.5 text-slate-600 whitespace-nowrap">
+                        {fmtDate(r.data_recebimento || r.data)}
+                      </td>
+                      <td className="px-4 py-2.5 text-center font-mono text-xs font-semibold text-slate-700">
+                        {extrairNumOS(r)}
+                      </td>
+                      <td className="px-4 py-2.5 text-slate-800 max-w-xs truncate" title={r.cliente_nome}>
+                        {r.cliente_nome || '—'}
+                      </td>
+                      <td className="px-4 py-2.5 text-center text-slate-500 text-xs">
+                        {r.forma_recebimento || '—'}
+                      </td>
+                      <td className="px-4 py-2.5 text-right font-bold text-green-700">
+                        R$ {fmtMoney(r.valor)}
+                      </td>
+                    </tr>
+                  )) : (
+                    <tr>
+                      <td colSpan={5} className="px-4 py-10 text-center text-slate-400">
+                        <CheckCircle className="w-8 h-8 mx-auto mb-2 opacity-40" />
+                        Nenhuma OS paga em {nomeMesComissao}
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+                {osComissao.length > 0 && (
+                  <tfoot className="bg-green-50 border-t-2 border-green-200">
+                    <tr>
+                      <td colSpan={4} className="px-4 py-3 font-semibold text-slate-700 text-right">
+                        Total ({osComissao.length} OS):
+                      </td>
+                      <td className="px-4 py-3 text-right font-bold text-green-700 text-base">
+                        R$ {fmtMoney(totalComissao)}
                       </td>
                     </tr>
                   </tfoot>
