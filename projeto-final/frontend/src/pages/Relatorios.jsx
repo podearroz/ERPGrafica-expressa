@@ -150,6 +150,19 @@ const Relatorios = () => {
     return r.venda_id ? `V-${r.venda_id}` : '—';
   };
 
+  // Extrai desconto salvo na observação ("Desconto: R$ X.XX")
+  const extrairDesconto = (r) => {
+    if (!r.observacao) return 0;
+    const m = r.observacao.match(/Desconto: R\$ ([\d.]+)/);
+    return m ? parseFloat(m[1]) || 0 : 0;
+  };
+  // Valor original = valor atual + desconto (para recebidos, valor já foi reduzido no banco)
+  const valorOriginalRec = (r) =>
+    r.status === 'Recebido'
+      ? parseFloat(r.valor || 0) + extrairDesconto(r)
+      : parseFloat(r.valor || 0);
+  const valorBaixadoRec = (r) => r.status === 'Recebido' ? parseFloat(r.valor || 0) : 0;
+
   const contasRecebidas = useMemo(() => {
     const vendaRecs = recebimentos
       .filter(r => r.status === 'Recebido')
@@ -186,11 +199,10 @@ const Relatorios = () => {
   }, [recebimentos, dateFrom, dateTo]);
   const totalRecebido = contasRecebidas.reduce((s, r) => s + parseFloat(r.valor || 0), 0);
 
-  // ── Contas a Receber (pendentes) filtradas por vencimento ─────────────────
+  // ── Contas a Receber (todos: recebidos + pendentes) filtradas por vencimento
   const contasReceber = useMemo(() => {
     return recebimentos
       .filter(r => r.tipo === 'entrada' || !r.tipo)
-      .filter(r => r.status !== 'Recebido')
       .filter(r => {
         if (dateFrom && r.data < dateFrom) return false;
         if (dateTo   && r.data > dateTo)   return false;
@@ -199,10 +211,22 @@ const Relatorios = () => {
       .sort((a, b) => (a.data || '').localeCompare(b.data || ''));
   }, [recebimentos, dateFrom, dateTo]);
 
-  const totalReceber    = contasReceber.reduce((s, r) => s + parseFloat(r.valor || 0), 0);
-  const totalVencidoRec = contasReceber
-    .filter(r => r.data < today())
-    .reduce((s, r) => s + parseFloat(r.valor || 0), 0);
+  const contasReceberPendentes = contasReceber.filter(r => r.status !== 'Recebido');
+  const contasReceberRecebidas = contasReceber.filter(r => r.status === 'Recebido');
+
+  // Totais da aba Contas a Receber
+  const crOriginalTotal  = contasReceber.reduce((s, r) => s + valorOriginalRec(r), 0);
+  const crBaixadoTotal   = contasReceberRecebidas.reduce((s, r) => s + parseFloat(r.valor || 0), 0);
+  const crDescontoTotal  = contasReceberRecebidas.reduce((s, r) => s + extrairDesconto(r), 0);
+  const crTotalRecebido  = crBaixadoTotal;
+  const crTotalAReceber  = contasReceberPendentes.reduce((s, r) => s + parseFloat(r.valor || 0), 0);
+  const crAtrasados      = contasReceberPendentes.filter(r => r.data && r.data < today()).reduce((s, r) => s + parseFloat(r.valor || 0), 0);
+  const crHoje           = contasReceberPendentes.filter(r => r.data === today()).reduce((s, r) => s + parseFloat(r.valor || 0), 0);
+  const crFuturos        = contasReceberPendentes.filter(r => r.data && r.data > today()).reduce((s, r) => s + parseFloat(r.valor || 0), 0);
+
+  // Compatibilidade com variáveis usadas em outras abas/cards antigos
+  const totalReceber    = crTotalAReceber;
+  const totalVencidoRec = crAtrasados;
 
   // ── Contas a Pagar filtradas pelo período ─────────────────────────────────
   const contasPagar = useMemo(() => {
@@ -300,17 +324,52 @@ const Relatorios = () => {
       tfoot = `<tr style="border-top:2px solid #334155"><td colspan="3" style="text-align:right;font-weight:700">Total Recebido:</td><td style="text-align:right;font-weight:700;color:#15803d;font-size:12px">R$ ${fmt(totalRecebido)}</td></tr>`;
     } else if (aba === 'receber') {
       titulo = `Contas a Receber — ${fdt(dateFrom)} a ${fdt(dateTo)}`;
-      thead = `<tr><th style="width:60px">Vencimento</th><th>Descrição</th><th>Cliente</th><th style="width:60px;text-align:center">Parcela</th><th style="width:60px;text-align:center">Status</th><th style="width:80px;text-align:right">Valor</th></tr>`;
-      tbody = contasReceber.map(r => `
-        <tr>
-          <td>${fdt(r.data)}</td>
-          <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.descricao || '—'}</td>
-          <td style="max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.cliente_nome || '—'}</td>
-          <td style="text-align:center">${r.parcela || '—'}</td>
-          <td style="text-align:center">${r.status || '—'}</td>
-          <td style="text-align:right;color:#15803d;font-weight:600">R$ ${fmt(r.valor)}</td>
-        </tr>`).join('');
-      tfoot = `<tr style="border-top:2px solid #334155"><td colspan="5" style="text-align:right;font-weight:700">Total:</td><td style="text-align:right;font-weight:700;color:#15803d;font-size:12px">R$ ${fmt(contasReceber.reduce((s,r)=>s+parseFloat(r.valor||0),0))}</td></tr>`;
+      thead = `<tr>
+        <th style="width:65px">Vencimento</th>
+        <th style="width:25%">Cliente</th>
+        <th style="width:70px;text-align:center">Nº OS</th>
+        <th style="width:70px;text-align:center">Situação</th>
+        <th style="width:80px;text-align:right">Vlr. Original</th>
+        <th style="width:80px;text-align:right">Vlr. Baixado</th>
+        <th style="width:70px;text-align:right">Desconto</th>
+      </tr>`;
+      const _today = today();
+      tbody = contasReceber.map(r => {
+        const vencido = r.status !== 'Recebido' && r.data && r.data < _today;
+        const recebido = r.status === 'Recebido';
+        const desc = extrairDesconto(r);
+        const orig = valorOriginalRec(r);
+        const baixado = valorBaixadoRec(r);
+        return `<tr style="${vencido ? 'background:#fff1f2' : recebido ? 'background:#f0fdf4' : ''}">
+          <td style="${vencido ? 'color:#dc2626;font-weight:600' : ''}">${fdt(r.data)}${vencido ? ' <span style="font-size:6.5px;color:#ef4444">(venc.)</span>' : ''}</td>
+          <td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.cliente_nome || '—'}</td>
+          <td style="text-align:center;font-family:monospace;font-weight:600;font-size:7.5px">${extrairNumOS(r)}</td>
+          <td style="text-align:center;color:${recebido ? '#15803d' : vencido ? '#dc2626' : '#92400e'};font-weight:600">${r.status || 'Não Pago'}</td>
+          <td style="text-align:right;font-weight:600">R$ ${fmt(orig)}</td>
+          <td style="text-align:right;color:${recebido ? '#15803d' : '#94a3b8'}">${recebido ? 'R$ ' + fmt(baixado) : '—'}</td>
+          <td style="text-align:right;color:${desc > 0 ? '#b45309' : '#94a3b8'}">${desc > 0 ? 'R$ ' + fmt(desc) : '—'}</td>
+        </tr>`;
+      }).join('');
+      tfoot = `
+        <tr style="border-top:2px solid #334155">
+          <td colspan="7" style="padding:0">
+            <div style="display:flex;justify-content:space-between;padding:8px 5px;gap:20px">
+              <div style="font-size:8px;line-height:1.8">
+                <div><strong>Qtd. de contas:</strong> ${contasReceber.length}</div>
+                <div><strong>Valor original total:</strong> R$ ${fmt(crOriginalTotal)}</div>
+                <div><strong>Valor baixado total:</strong> R$ ${fmt(crBaixadoTotal)}</div>
+                <div><strong>Total descontos:</strong> R$ ${fmt(crDescontoTotal)}</div>
+              </div>
+              <div style="font-size:8px;line-height:1.8;text-align:right">
+                <div><strong style="color:#15803d">Total Recebido:</strong> R$ ${fmt(crTotalRecebido)}</div>
+                <div><strong>Total a Receber:</strong> R$ ${fmt(crTotalAReceber)}</div>
+                <div><strong style="color:#dc2626">Atrasados:</strong> R$ ${fmt(crAtrasados)}</div>
+                <div><strong style="color:#92400e">Para hoje:</strong> R$ ${fmt(crHoje)}</div>
+                <div><strong style="color:#1d4ed8">Futuros:</strong> R$ ${fmt(crFuturos)}</div>
+              </div>
+            </div>
+          </td>
+        </tr>`;
     } else if (aba === 'pagar') {
       titulo = `Pagamento de Contas — ${fdt(dateFrom)} a ${fdt(dateTo)}`;
       thead = `<tr><th style="width:60px">Vencimento</th><th>Descrição</th><th style="width:60px;text-align:center">Status</th><th style="width:80px;text-align:right">Valor</th></tr>`;
@@ -826,31 +885,34 @@ const Relatorios = () => {
       {/* ── ABA: CONTAS A RECEBER ─────────────────────────────────────────── */}
       {aba === 'receber' && (
         <>
-          {/* Cards de resumo */}
-          <div className="grid grid-cols-3 gap-4">
+          {/* Cards de resumo - linha superior */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div className="bg-green-50 border border-green-200 rounded-xl p-4">
+              <p className="text-xs text-green-700 font-semibold uppercase tracking-wide">Total Recebido</p>
+              <p className="text-2xl font-bold text-green-700 mt-1">R$ {fmtMoney(crTotalRecebido)}</p>
+              <p className="text-xs text-green-500 mt-1">{contasReceberRecebidas.length} recebimento(s)</p>
+            </div>
             <div className="bg-slate-50 border border-slate-200 rounded-xl p-4">
-              <p className="text-sm text-slate-500 font-medium">Total a Receber</p>
-              <p className="text-2xl font-bold text-slate-800 mt-1">R$ {fmtMoney(totalReceber)}</p>
-              <p className="text-xs text-slate-400 mt-1">{contasReceber.length} lançamento(s)</p>
+              <p className="text-xs text-slate-500 font-semibold uppercase tracking-wide">Total a Receber</p>
+              <p className="text-2xl font-bold text-slate-800 mt-1">R$ {fmtMoney(crTotalAReceber)}</p>
+              <p className="text-xs text-slate-400 mt-1">{contasReceberPendentes.length} pendente(s)</p>
             </div>
             <div className="bg-red-50 border border-red-100 rounded-xl p-4">
-              <p className="text-sm text-red-600 font-medium flex items-center gap-1">
-                <AlertCircle className="w-4 h-4" /> Vencidos
+              <p className="text-xs text-red-600 font-semibold uppercase tracking-wide flex items-center gap-1">
+                <AlertCircle className="w-3 h-3" /> Atrasados
               </p>
-              <p className="text-2xl font-bold text-red-700 mt-1">R$ {fmtMoney(totalVencidoRec)}</p>
+              <p className="text-2xl font-bold text-red-700 mt-1">R$ {fmtMoney(crAtrasados)}</p>
               <p className="text-xs text-red-400 mt-1">
-                {contasReceber.filter(r => r.data < today()).length} lançamento(s)
+                {contasReceberPendentes.filter(r => r.data && r.data < today()).length} conta(s)
               </p>
             </div>
             <div className="bg-blue-50 border border-blue-100 rounded-xl p-4">
-              <p className="text-sm text-blue-600 font-medium flex items-center gap-1">
-                <Clock className="w-4 h-4" /> A Vencer
+              <p className="text-xs text-blue-600 font-semibold uppercase tracking-wide flex items-center gap-1">
+                <Clock className="w-3 h-3" /> Futuros
               </p>
-              <p className="text-2xl font-bold text-blue-700 mt-1">
-                R$ {fmtMoney(totalReceber - totalVencidoRec)}
-              </p>
+              <p className="text-2xl font-bold text-blue-700 mt-1">R$ {fmtMoney(crFuturos)}</p>
               <p className="text-xs text-blue-400 mt-1">
-                {contasReceber.filter(r => r.data >= today()).length} lançamento(s)
+                {contasReceberPendentes.filter(r => r.data && r.data > today()).length} conta(s)
               </p>
             </div>
           </div>
@@ -865,69 +927,110 @@ const Relatorios = () => {
               <table className="w-full text-sm">
                 <thead className="bg-slate-50 text-slate-600">
                   <tr>
-                    <th className="px-4 py-3 text-left font-semibold">Vencimento</th>
+                    <th className="px-4 py-3 text-left font-semibold whitespace-nowrap">Vencimento</th>
                     <th className="px-4 py-3 text-left font-semibold">Cliente</th>
-                    <th className="px-4 py-3 text-left font-semibold">Descrição</th>
-                    <th className="px-4 py-3 text-center font-semibold">Parcela</th>
-                    <th className="px-4 py-3 text-center font-semibold">Status</th>
-                    <th className="px-4 py-3 text-right font-semibold">Valor</th>
+                    <th className="px-4 py-3 text-center font-semibold whitespace-nowrap">Nº OS</th>
+                    <th className="px-4 py-3 text-center font-semibold">Situação</th>
+                    <th className="px-4 py-3 text-right font-semibold whitespace-nowrap">Vlr. Original</th>
+                    <th className="px-4 py-3 text-right font-semibold whitespace-nowrap">Vlr. Baixado</th>
+                    <th className="px-4 py-3 text-right font-semibold">Desconto</th>
                     <th className="px-4 py-3 text-center font-semibold print:hidden">Ação</th>
                   </tr>
                 </thead>
                 <tbody>
                   {contasReceber.length > 0 ? (
                     contasReceber.map(r => {
-                      const vencido = r.data && r.data < today();
+                      const recebido = r.status === 'Recebido';
+                      const vencido  = !recebido && r.data && r.data < today();
+                      const desc     = extrairDesconto(r);
+                      const orig     = valorOriginalRec(r);
+                      const baixado  = valorBaixadoRec(r);
                       return (
-                        <tr key={r.id} className={`border-t hover:bg-slate-50 ${vencido ? 'bg-red-50/40' : ''}`}>
-                          <td className={`px-4 py-3 ${vencido ? 'text-red-600 font-medium' : 'text-slate-600'}`}>
+                        <tr key={r.id} className={`border-t hover:bg-slate-50 ${recebido ? 'bg-green-50/30' : vencido ? 'bg-red-50/40' : ''}`}>
+                          <td className={`px-4 py-2.5 whitespace-nowrap ${vencido ? 'text-red-600 font-medium' : 'text-slate-600'}`}>
                             {fmtDate(r.data)}
-                            {vencido && <span className="ml-1 text-xs text-red-500">(vencido)</span>}
+                            {vencido && <span className="ml-1 text-xs text-red-400">(vencido)</span>}
                           </td>
-                          <td className="px-4 py-3 text-slate-800">
+                          <td className="px-4 py-2.5 text-slate-800 max-w-xs truncate" title={r.cliente_nome || r.venda?.cliente?.nome}>
                             {r.cliente_nome || r.venda?.cliente?.nome || '—'}
                           </td>
-                          <td className="px-4 py-3 text-slate-600 max-w-xs truncate" title={r.descricao}>
-                            {r.descricao}
+                          <td className="px-4 py-2.5 text-center font-mono text-xs text-slate-700 font-semibold">
+                            {extrairNumOS(r)}
                           </td>
-                          <td className="px-4 py-3 text-center text-slate-500">
-                            {r.parcelas > 1 ? `${r.parcela_atual}/${r.parcelas}` : '—'}
-                          </td>
-                          <td className="px-4 py-3 text-center">
+                          <td className="px-4 py-2.5 text-center">
                             <BadgeStatus status={r.status || 'Não Pago'} />
                           </td>
-                          <td className="px-4 py-3 text-right font-semibold text-green-700">
-                            R$ {fmtMoney(r.valor)}
+                          <td className="px-4 py-2.5 text-right font-semibold text-slate-800">
+                            R$ {fmtMoney(orig)}
                           </td>
-                          <td className="px-4 py-3 text-center print:hidden">
-                            <button
-                              onClick={() => abrirBaixa(r)}
-                              className="inline-flex items-center gap-1 px-2 py-1 text-xs rounded bg-green-50 text-green-700 hover:bg-green-100 font-medium"
-                              title="Dar baixa"
-                            >
-                              <Banknote className="w-3 h-3" /> Baixar
-                            </button>
+                          <td className="px-4 py-2.5 text-right font-semibold text-green-700">
+                            {recebido ? `R$ ${fmtMoney(baixado)}` : <span className="text-slate-300">—</span>}
+                          </td>
+                          <td className="px-4 py-2.5 text-right text-amber-700">
+                            {desc > 0 ? `R$ ${fmtMoney(desc)}` : <span className="text-slate-300">—</span>}
+                          </td>
+                          <td className="px-4 py-2.5 text-center print:hidden">
+                            {!recebido && (
+                              <button
+                                onClick={() => abrirBaixa(r)}
+                                className="inline-flex items-center gap-1 px-2 py-1 text-xs rounded bg-green-50 text-green-700 hover:bg-green-100 font-medium"
+                                title="Dar baixa"
+                              >
+                                <Banknote className="w-3 h-3" /> Baixar
+                              </button>
+                            )}
                           </td>
                         </tr>
                       );
                     })
                   ) : (
                     <tr>
-                      <td colSpan={6} className="px-4 py-10 text-center text-slate-400">
+                      <td colSpan={8} className="px-4 py-10 text-center text-slate-400">
                         <CheckCircle className="w-8 h-8 mx-auto mb-2 opacity-40" />
-                        Nenhuma conta a receber no período selecionado
+                        Nenhum lançamento no período selecionado
                       </td>
                     </tr>
                   )}
                 </tbody>
                 {contasReceber.length > 0 && (
-                  <tfoot className="bg-slate-50 border-t-2 border-slate-200">
+                  <tfoot className="border-t-2 border-slate-200">
                     <tr>
-                      <td colSpan={6} className="px-4 py-3 font-semibold text-slate-700 text-right">
-                        Total a Receber:
-                      </td>
-                      <td className="px-4 py-3 text-right font-bold text-green-700 text-base">
-                        R$ {fmtMoney(totalReceber)}
+                      <td colSpan={8} className="px-0 py-0">
+                        <div className="flex justify-between items-start px-4 py-3 bg-slate-50 gap-6">
+                          {/* Esquerda */}
+                          <div className="space-y-1 text-sm">
+                            <div className="text-slate-500">
+                              Quantidade de contas: <strong className="text-slate-800">{contasReceber.length}</strong>
+                            </div>
+                            <div className="text-slate-500">
+                              Valor original total: <strong className="text-slate-800">R$ {fmtMoney(crOriginalTotal)}</strong>
+                            </div>
+                            <div className="text-slate-500">
+                              Valor baixado total: <strong className="text-green-700">R$ {fmtMoney(crBaixadoTotal)}</strong>
+                            </div>
+                            <div className="text-slate-500">
+                              Valor total descontos: <strong className="text-amber-700">R$ {fmtMoney(crDescontoTotal)}</strong>
+                            </div>
+                          </div>
+                          {/* Direita */}
+                          <div className="space-y-1 text-sm text-right">
+                            <div className="text-slate-500">
+                              Valor total Recebido: <strong className="text-green-700">R$ {fmtMoney(crTotalRecebido)}</strong>
+                            </div>
+                            <div className="text-slate-500">
+                              Valor total a Receber: <strong className="text-slate-800">R$ {fmtMoney(crTotalAReceber)}</strong>
+                            </div>
+                            <div className="text-slate-500">
+                              Recebimentos atrasados: <strong className="text-red-600">R$ {fmtMoney(crAtrasados)}</strong>
+                            </div>
+                            <div className="text-slate-500">
+                              Recebimentos para hoje: <strong className="text-amber-700">R$ {fmtMoney(crHoje)}</strong>
+                            </div>
+                            <div className="text-slate-500">
+                              Recebimentos futuros: <strong className="text-blue-700">R$ {fmtMoney(crFuturos)}</strong>
+                            </div>
+                          </div>
+                        </div>
                       </td>
                     </tr>
                   </tfoot>
