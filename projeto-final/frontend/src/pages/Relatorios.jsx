@@ -144,8 +144,12 @@ const Relatorios = () => {
   // ── Contas Recebidas (vendas baixadas) filtradas pelo período ────────────
   const extrairNumOS = (r) => {
     if (r.descricao) {
-      const m = r.descricao.match(/^(OS-\d+)/);
-      if (m) return m[1];
+      // Padrão sistema: "OS-00040"
+      const m1 = r.descricao.match(/^(OS-\d+)/);
+      if (m1) return m1[1];
+      // Padrão VHSYS: "Ordem de Serviço 9254"
+      const m2 = r.descricao.match(/Ordem de Servi[çc]o\s+(\d+)/i);
+      if (m2) return m2[1];
     }
     return r.venda_id ? `V-${r.venda_id}` : '—';
   };
