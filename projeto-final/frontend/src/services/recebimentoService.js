@@ -2,10 +2,13 @@ import { supabase } from "../config/supabaseClient";
 
 export const recebimentoService = {
   async getAll() {
+    const anoAtual = new Date().getFullYear();
     const { data, error } = await supabase
       .from("recebimentos")
       .select("*, venda:vendas(id, produtos, cliente_id, cliente:clientes(nome))")
-      .order("data", { ascending: false });
+      .gte("data", `${anoAtual}-01-01`)
+      .order("data", { ascending: false })
+      .range(0, 2999);
     if (error) throw error;
     return data;
   },
