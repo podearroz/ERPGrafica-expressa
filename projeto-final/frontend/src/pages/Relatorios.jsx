@@ -390,7 +390,7 @@ const Relatorios = () => {
         <th style="width:70px">Data Rec.</th>
         <th style="width:70px;text-align:center">Nº OS</th>
         <th>Cliente</th>
-        <th style="width:90px;text-align:center">Forma Pgto</th>
+        <th style="width:70px;text-align:center">Situação</th>
         <th style="width:90px;text-align:right">Valor Recebido</th>
       </tr>`;
       tbody = osComissao.map(r => `
@@ -398,13 +398,28 @@ const Relatorios = () => {
           <td>${fdt(r.data_recebimento || r.data)}</td>
           <td style="text-align:center;font-family:monospace;font-weight:600">${extrairNumOS(r)}</td>
           <td style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.cliente_nome || '—'}</td>
-          <td style="text-align:center">${r.forma_recebimento || '—'}</td>
+          <td style="text-align:center;color:#15803d;font-weight:600">${r.status || 'Recebido'}</td>
           <td style="text-align:right;color:#15803d;font-weight:600">R$ ${fmt(r.valor)}</td>
         </tr>`).join('');
       tfoot = `
         <tr style="border-top:2px solid #334155">
-          <td colspan="4" style="text-align:right;font-weight:700">Total (${osComissao.length} OS):</td>
-          <td style="text-align:right;font-weight:700;color:#15803d;font-size:12px">R$ ${fmt(totalComissao)}</td>
+          <td colspan="5" style="padding:0">
+            <div style="display:flex;justify-content:space-between;padding:8px 5px;gap:20px">
+              <div style="font-size:8px;line-height:1.8">
+                <div><strong>Qtd. de OS:</strong> ${osComissao.length}</div>
+                <div><strong>Valor original total:</strong> R$ ${fmt(totalComissaoOrig)}</div>
+                <div><strong>Valor baixado total:</strong> R$ ${fmt(totalComissao)}</div>
+                <div><strong>Total descontos:</strong> R$ ${fmt(totalComissaoDesc)}</div>
+              </div>
+              <div style="font-size:8px;line-height:1.8;text-align:right">
+                <div><strong style="color:#15803d">Total Recebido:</strong> R$ ${fmt(totalComissao)}</div>
+                <div><strong>Total a Receber:</strong> R$ 0,00</div>
+                <div><strong style="color:#dc2626">Atrasados:</strong> R$ 0,00</div>
+                <div><strong style="color:#92400e">Para hoje:</strong> R$ 0,00</div>
+                <div><strong style="color:#1d4ed8">Futuros:</strong> R$ 0,00</div>
+              </div>
+            </div>
+          </td>
         </tr>`;
     } else if (aba === 'pagar') {
       titulo = `Pagamento de Contas — ${fdt(dateFrom)} a ${fdt(dateTo)}`;
@@ -546,7 +561,9 @@ const Relatorios = () => {
       );
   }, [recebimentos, mesComissao]);
 
-  const totalComissao = osComissao.reduce((s, r) => s + parseFloat(r.valor || 0), 0);
+  const totalComissao        = osComissao.reduce((s, r) => s + parseFloat(r.valor || 0), 0);
+  const totalComissaoDesc    = osComissao.reduce((s, r) => s + extrairDesconto(r), 0);
+  const totalComissaoOrig    = osComissao.reduce((s, r) => s + valorOriginalRec(r), 0);
 
   const nomeMesComissao = mesComissao
     ? new Date(mesComissao + '-15').toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })
@@ -1147,13 +1164,13 @@ const Relatorios = () => {
                     <th className="px-4 py-3 text-left font-semibold whitespace-nowrap">Data Recebimento</th>
                     <th className="px-4 py-3 text-center font-semibold whitespace-nowrap">Nº OS</th>
                     <th className="px-4 py-3 text-left font-semibold">Cliente</th>
-                    <th className="px-4 py-3 text-center font-semibold whitespace-nowrap">Forma Pgto</th>
+                    <th className="px-4 py-3 text-center font-semibold">Situação</th>
                     <th className="px-4 py-3 text-right font-semibold whitespace-nowrap">Valor Recebido</th>
                   </tr>
                 </thead>
                 <tbody>
                   {osComissao.length > 0 ? osComissao.map(r => (
-                    <tr key={r.id} className="border-t hover:bg-slate-50">
+                    <tr key={r.id} className="border-t hover:bg-green-50/20">
                       <td className="px-4 py-2.5 text-slate-600 whitespace-nowrap">
                         {fmtDate(r.data_recebimento || r.data)}
                       </td>
@@ -1163,8 +1180,8 @@ const Relatorios = () => {
                       <td className="px-4 py-2.5 text-slate-800 max-w-xs truncate" title={r.cliente_nome}>
                         {r.cliente_nome || '—'}
                       </td>
-                      <td className="px-4 py-2.5 text-center text-slate-500 text-xs">
-                        {r.forma_recebimento || '—'}
+                      <td className="px-4 py-2.5 text-center">
+                        <BadgeStatus status={r.status || 'Recebido'} />
                       </td>
                       <td className="px-4 py-2.5 text-right font-bold text-green-700">
                         R$ {fmtMoney(r.valor)}
@@ -1180,13 +1197,44 @@ const Relatorios = () => {
                   )}
                 </tbody>
                 {osComissao.length > 0 && (
-                  <tfoot className="bg-green-50 border-t-2 border-green-200">
+                  <tfoot className="border-t-2 border-slate-200">
                     <tr>
-                      <td colSpan={4} className="px-4 py-3 font-semibold text-slate-700 text-right">
-                        Total ({osComissao.length} OS):
-                      </td>
-                      <td className="px-4 py-3 text-right font-bold text-green-700 text-base">
-                        R$ {fmtMoney(totalComissao)}
+                      <td colSpan={5} className="px-0 py-0">
+                        <div className="flex justify-between items-start px-4 py-3 bg-slate-50 gap-6">
+                          {/* Esquerda */}
+                          <div className="space-y-1 text-sm">
+                            <div className="text-slate-500">
+                              Quantidade de OS: <strong className="text-slate-800">{osComissao.length}</strong>
+                            </div>
+                            <div className="text-slate-500">
+                              Valor original total: <strong className="text-slate-800">R$ {fmtMoney(totalComissaoOrig)}</strong>
+                            </div>
+                            <div className="text-slate-500">
+                              Valor baixado total: <strong className="text-green-700">R$ {fmtMoney(totalComissao)}</strong>
+                            </div>
+                            <div className="text-slate-500">
+                              Valor total descontos: <strong className="text-amber-700">R$ {fmtMoney(totalComissaoDesc)}</strong>
+                            </div>
+                          </div>
+                          {/* Direita */}
+                          <div className="space-y-1 text-sm text-right">
+                            <div className="text-slate-500">
+                              Valor total Recebido: <strong className="text-green-700">R$ {fmtMoney(totalComissao)}</strong>
+                            </div>
+                            <div className="text-slate-500">
+                              Valor total a Receber: <strong className="text-slate-800">R$ 0,00</strong>
+                            </div>
+                            <div className="text-slate-500">
+                              Recebimentos atrasados: <strong className="text-red-600">R$ 0,00</strong>
+                            </div>
+                            <div className="text-slate-500">
+                              Recebimentos para hoje: <strong className="text-amber-700">R$ 0,00</strong>
+                            </div>
+                            <div className="text-slate-500">
+                              Recebimentos futuros: <strong className="text-blue-700">R$ 0,00</strong>
+                            </div>
+                          </div>
+                        </div>
                       </td>
                     </tr>
                   </tfoot>
