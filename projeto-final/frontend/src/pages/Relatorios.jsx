@@ -544,7 +544,7 @@ const Relatorios = () => {
 
   // ── OS Pagas no mês (comissão) ────────────────────────────────────────────
   const osComissao = useMemo(() => {
-    return recebimentos
+    const lista = recebimentos
       .filter(r => r.status === 'Recebido')
       .filter(r =>
         r.os_id ||
@@ -559,6 +559,32 @@ const Relatorios = () => {
       .sort((a, b) =>
         (a.data_recebimento || a.data || '').localeCompare(b.data_recebimento || b.data || '')
       );
+
+    // Deduplicar por número de OS — mantém o registro manual (fonte=null) ou o mais recente
+    const mapa = new Map();
+    for (const r of lista) {
+      const chave = extrairNumOS(r);
+      if (!mapa.has(chave)) {
+        mapa.set(chave, r);
+      } else {
+        const atual = mapa.get(chave);
+        // Prefere registro sem fonte (manual) sobre VHSYS
+        const rManual = !r.fonte;
+        const atualManual = !atual.fonte;
+        if (rManual && !atualManual) {
+          mapa.set(chave, r);
+        } else if (!rManual && !atualManual) {
+          // Ambos manuais: mantém o de data_recebimento mais recente
+          const drR = r.data_recebimento || r.data || '';
+          const drA = atual.data_recebimento || atual.data || '';
+          if (drR > drA) mapa.set(chave, r);
+        }
+        // Se atual já é manual e novo é VHSYS: mantém atual (não substitui)
+      }
+    }
+    return Array.from(mapa.values()).sort((a, b) =>
+      (a.data_recebimento || a.data || '').localeCompare(b.data_recebimento || b.data || '')
+    );
   }, [recebimentos, mesComissao]);
 
   const totalComissao        = osComissao.reduce((s, r) => s + parseFloat(r.valor || 0), 0);
