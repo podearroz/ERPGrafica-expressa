@@ -539,10 +539,16 @@ const Relatorios = () => {
   const saldoPeriodo         = totalEntradasExtrato - totalSaidasExtrato;
   const saldoFinal           = saldoAnteriorNum + saldoPeriodo;
 
-  // ── Contas Recebidas — Comissão (todas as parcelas pagas, exceto Boleto) ──
+  // ── Contas Recebidas — Comissão (parcelas pagas de OS/Venda, exceto Boleto) ──
   const osComissao = useMemo(() => {
     return recebimentos
       .filter(r => r.status === 'Recebido')
+      .filter(r =>
+        r.os_id ||
+        r.venda_id ||
+        /^OS-\d+/.test(r.descricao || '') ||
+        /Ordem de Servi[çc]o\s+\d+/i.test(r.descricao || '')
+      )
       .filter(r => (r.forma_recebimento || '').toLowerCase() !== 'boleto')
       .filter(r => {
         const dataEf = r.data_recebimento || r.data;
