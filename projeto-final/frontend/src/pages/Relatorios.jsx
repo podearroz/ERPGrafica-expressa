@@ -393,15 +393,15 @@ const Relatorios = () => {
         <th style="width:70px">Data Rec.</th>
         <th style="width:70px;text-align:center">Nº OS</th>
         <th>Cliente</th>
-        <th style="width:80px;text-align:center">Forma Pag.</th>
+        <th style="width:70px;text-align:center">Situação</th>
         <th style="width:90px;text-align:right">Valor Recebido</th>
       </tr>`;
       tbody = osComissao.map(r => `
         <tr>
           <td>${fdt(r.data_recebimento || r.data)}</td>
           <td style="text-align:center;font-family:monospace;font-weight:600">${extrairNumOS(r)}</td>
-          <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.cliente_nome || '—'}</td>
-          <td style="text-align:center">${r.forma_recebimento || '—'}</td>
+          <td style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.cliente_nome || '—'}</td>
+          <td style="text-align:center;color:#15803d;font-weight:600">${r.status || 'Recebido'}</td>
           <td style="text-align:right;color:#15803d;font-weight:600">R$ ${fmt(r.valor)}</td>
         </tr>`).join('');
       tfoot = `
@@ -1162,7 +1162,7 @@ const Relatorios = () => {
                     <th className="px-4 py-3 text-left font-semibold whitespace-nowrap">Data Recebimento</th>
                     <th className="px-4 py-3 text-center font-semibold whitespace-nowrap">Nº OS</th>
                     <th className="px-4 py-3 text-left font-semibold">Cliente</th>
-                    <th className="px-4 py-3 text-center font-semibold whitespace-nowrap">Forma Pag.</th>
+                    <th className="px-4 py-3 text-center font-semibold">Situação</th>
                     <th className="px-4 py-3 text-right font-semibold whitespace-nowrap">Valor Recebido</th>
                   </tr>
                 </thead>
@@ -1178,8 +1178,8 @@ const Relatorios = () => {
                       <td className="px-4 py-2.5 text-slate-800 max-w-xs truncate" title={r.cliente_nome}>
                         {r.cliente_nome || '—'}
                       </td>
-                      <td className="px-4 py-2.5 text-center text-slate-600 text-xs">
-                        {r.forma_recebimento || '—'}
+                      <td className="px-4 py-2.5 text-center">
+                        <BadgeStatus status={r.status || 'Recebido'} />
                       </td>
                       <td className="px-4 py-2.5 text-right font-bold text-green-700">
                         R$ {fmtMoney(r.valor)}
