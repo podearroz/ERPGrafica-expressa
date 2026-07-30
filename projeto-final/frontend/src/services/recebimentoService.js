@@ -5,7 +5,7 @@ export const recebimentoService = {
     const anoAtual = new Date().getFullYear();
     const { data, error } = await supabase
       .from("recebimentos")
-      .select("*, venda:vendas(id, produtos, cliente_id, cliente:clientes(nome))")
+      .select("*, venda:vendas(id, produtos, cliente_id, cliente:clientes(nome)), os:ordens_servico(numero_os)")
       .gte("data", `${anoAtual}-01-01`)
       .order("data", { ascending: false })
       .range(0, 2999);
