@@ -163,7 +163,7 @@ export async function emitirNFe(req, res) {
     const itens            = body.venda?.itens            ?? body.itens;
     const formaPagamento   = body.venda?.pagamento?.forma ?? body.formaPagamento   ?? '01';
     const naturezaOperacao = body.venda?.natureza_operacao ?? body.naturezaOperacao;
-    const observacoes      = body.venda?.observacoes      ?? body.observacoes ?? '';
+    const observacoes      = body.venda?.observacoes      ?? body.venda?.detalhes?.observacoes ?? body.observacoes ?? '';
     const transporte       = body.venda?.transporte       ?? body.transporte  ?? {};
     const desconto         = parseFloat(body.venda?.totais?.desconto ?? body.totais?.desconto ?? body.desconto ?? 0);
 
