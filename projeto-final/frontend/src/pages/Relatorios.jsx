@@ -171,9 +171,14 @@ const Relatorios = () => {
   const valorBaixadoRec = (r) => r.status === 'Recebido' ? parseFloat(r.valor || 0) : 0;
 
   const contasRecebidas = useMemo(() => {
+    const isOsRec = (r) =>
+      r.os_id ||
+      /^OS-\d+/.test(r.descricao || '') ||
+      /Ordem de Servi[çc]o\s+\d+/i.test(r.descricao || '');
+
     const vendaRecs = recebimentos
       .filter(r => r.status === 'Recebido')
-      .filter(r => r.categoria === 'Venda' || r.venda_id)
+      .filter(r => r.categoria === 'Venda' || r.venda_id || isOsRec(r))
       .filter(r => {
         const dataEf = r.data_recebimento || r.data;
         if (dateFrom && dataEf < dateFrom) return false;
@@ -181,28 +186,24 @@ const Relatorios = () => {
         return true;
       });
 
-    // Dedup por venda_id — soma parcelas do mesmo pedido
-    const byVendaId = new Map();
-    const semVenda = [];
+    // Dedup por (venda_id + data_recebimento) — evita duplicatas mas mantém parcelas separadas
+    const seen = new Map();
+    const result = [];
     for (const r of vendaRecs) {
-      if (r.venda_id) {
-        if (!byVendaId.has(r.venda_id)) {
-          byVendaId.set(r.venda_id, { ...r });
-        } else {
-          const existing = byVendaId.get(r.venda_id);
-          existing.valor = parseFloat(existing.valor || 0) + parseFloat(r.valor || 0);
-        }
-      } else {
-        semVenda.push(r);
+      const chave = r.venda_id
+        ? `${r.venda_id}|${r.data_recebimento || r.data}`
+        : r.id;
+      if (!seen.has(chave)) {
+        seen.set(chave, true);
+        result.push(r);
       }
     }
 
-    return [...byVendaId.values(), ...semVenda]
-      .sort((a, b) => {
-        const da = a.data_recebimento || a.data || '';
-        const db = b.data_recebimento || b.data || '';
-        return da.localeCompare(db);
-      });
+    return result.sort((a, b) => {
+      const da = a.data_recebimento || a.data || '';
+      const db = b.data_recebimento || b.data || '';
+      return da.localeCompare(db);
+    });
   }, [recebimentos, dateFrom, dateTo]);
   const totalRecebido = contasRecebidas.reduce((s, r) => s + parseFloat(r.valor || 0), 0);
 
