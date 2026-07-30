@@ -388,20 +388,20 @@ const Relatorios = () => {
           </td>
         </tr>`;
     } else if (aba === 'comissao') {
-      titulo = `OS Pagas — Comissão — ${nomeMesComissao}`;
+      titulo = `Contas Recebidas — Comissão — ${nomeMesComissao}`;
       thead = `<tr>
         <th style="width:70px">Data Rec.</th>
         <th style="width:70px;text-align:center">Nº OS</th>
         <th>Cliente</th>
-        <th style="width:70px;text-align:center">Situação</th>
+        <th style="width:80px;text-align:center">Forma Pag.</th>
         <th style="width:90px;text-align:right">Valor Recebido</th>
       </tr>`;
       tbody = osComissao.map(r => `
         <tr>
           <td>${fdt(r.data_recebimento || r.data)}</td>
           <td style="text-align:center;font-family:monospace;font-weight:600">${extrairNumOS(r)}</td>
-          <td style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.cliente_nome || '—'}</td>
-          <td style="text-align:center;color:#15803d;font-weight:600">${r.status || 'Recebido'}</td>
+          <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.cliente_nome || '—'}</td>
+          <td style="text-align:center">${r.forma_recebimento || '—'}</td>
           <td style="text-align:right;color:#15803d;font-weight:600">R$ ${fmt(r.valor)}</td>
         </tr>`).join('');
       tfoot = `
@@ -409,17 +409,11 @@ const Relatorios = () => {
           <td colspan="5" style="padding:0">
             <div style="display:flex;justify-content:space-between;padding:8px 5px;gap:20px">
               <div style="font-size:8px;line-height:1.8">
-                <div><strong>Qtd. de OS:</strong> ${osComissao.length}</div>
-                <div><strong>Valor original total:</strong> R$ ${fmt(totalComissaoOrig)}</div>
-                <div><strong>Valor baixado total:</strong> R$ ${fmt(totalComissao)}</div>
+                <div><strong>Qtd. de parcelas:</strong> ${osComissao.length}</div>
                 <div><strong>Total descontos:</strong> R$ ${fmt(totalComissaoDesc)}</div>
               </div>
               <div style="font-size:8px;line-height:1.8;text-align:right">
                 <div><strong style="color:#15803d">Total Recebido:</strong> R$ ${fmt(totalComissao)}</div>
-                <div><strong>Total a Receber:</strong> R$ 0,00</div>
-                <div><strong style="color:#dc2626">Atrasados:</strong> R$ 0,00</div>
-                <div><strong style="color:#92400e">Para hoje:</strong> R$ 0,00</div>
-                <div><strong style="color:#1d4ed8">Futuros:</strong> R$ 0,00</div>
               </div>
             </div>
           </td>
@@ -545,16 +539,11 @@ const Relatorios = () => {
   const saldoPeriodo         = totalEntradasExtrato - totalSaidasExtrato;
   const saldoFinal           = saldoAnteriorNum + saldoPeriodo;
 
-  // ── OS Pagas no mês (comissão) ────────────────────────────────────────────
+  // ── Contas Recebidas — Comissão (todas as parcelas pagas, exceto Boleto) ──
   const osComissao = useMemo(() => {
-    const lista = recebimentos
+    return recebimentos
       .filter(r => r.status === 'Recebido')
-      .filter(r =>
-        r.os_id ||
-        r.venda_id ||
-        /^OS-\d+/.test(r.descricao || '') ||
-        /Ordem de Servi[çc]o\s+\d+/i.test(r.descricao || '')
-      )
+      .filter(r => (r.forma_recebimento || '').toLowerCase() !== 'boleto')
       .filter(r => {
         const dataEf = r.data_recebimento || r.data;
         return dataEf && dataEf.startsWith(mesComissao);
@@ -562,32 +551,6 @@ const Relatorios = () => {
       .sort((a, b) =>
         (a.data_recebimento || a.data || '').localeCompare(b.data_recebimento || b.data || '')
       );
-
-    // Deduplicar por número de OS — mantém o registro manual (fonte=null) ou o mais recente
-    const mapa = new Map();
-    for (const r of lista) {
-      const chave = extrairNumOS(r);
-      if (!mapa.has(chave)) {
-        mapa.set(chave, r);
-      } else {
-        const atual = mapa.get(chave);
-        // Prefere registro sem fonte (manual) sobre VHSYS
-        const rManual = !r.fonte;
-        const atualManual = !atual.fonte;
-        if (rManual && !atualManual) {
-          mapa.set(chave, r);
-        } else if (!rManual && !atualManual) {
-          // Ambos manuais: mantém o de data_recebimento mais recente
-          const drR = r.data_recebimento || r.data || '';
-          const drA = atual.data_recebimento || atual.data || '';
-          if (drR > drA) mapa.set(chave, r);
-        }
-        // Se atual já é manual e novo é VHSYS: mantém atual (não substitui)
-      }
-    }
-    return Array.from(mapa.values()).sort((a, b) =>
-      (a.data_recebimento || a.data || '').localeCompare(b.data_recebimento || b.data || '')
-    );
   }, [recebimentos, mesComissao]);
 
   const totalComissao        = osComissao.reduce((s, r) => s + parseFloat(r.valor || 0), 0);
@@ -608,7 +571,7 @@ const Relatorios = () => {
   const abas = [
     { key: 'recebidas',     label: `Contas Recebidas (${contasRecebidas.length})` },
     { key: 'receber',       label: `Contas a Receber (${contasReceber.length})` },
-    { key: 'comissao',      label: `OS Pagas — Comissão (${osComissao.length})` },
+    { key: 'comissao',      label: `Comissão — Recebidos (${osComissao.length})` },
     { key: 'pagar',         label: `Pagamento de Contas (${contasPagar.length})` },
     { key: 'vendas_aberto', label: `Vendas em Aberto (${vendasAberto.length})` },
     { key: 'extrato',       label: 'Extrato / Caixa' },
@@ -1164,7 +1127,7 @@ const Relatorios = () => {
             <div className="bg-green-50 border border-green-200 rounded-xl p-4">
               <p className="text-xs text-green-700 font-semibold uppercase tracking-wide">Total Recebido no Mês</p>
               <p className="text-2xl font-bold text-green-700 mt-1">R$ {fmtMoney(totalComissao)}</p>
-              <p className="text-xs text-green-500 mt-1">{osComissao.length} OS pagas</p>
+              <p className="text-xs text-green-500 mt-1">{osComissao.length} parcelas recebidas</p>
             </div>
             <div className="bg-slate-50 border border-slate-200 rounded-xl p-4">
               <p className="text-xs text-slate-500 font-semibold uppercase tracking-wide">Período</p>
@@ -1175,16 +1138,16 @@ const Relatorios = () => {
               <p className="text-2xl font-bold text-blue-700 mt-1">
                 R$ {fmtMoney(osComissao.length > 0 ? totalComissao / osComissao.length : 0)}
               </p>
-              <p className="text-xs text-blue-400 mt-1">por OS</p>
+              <p className="text-xs text-blue-400 mt-1">por parcela</p>
             </div>
           </div>
 
           <Card>
             <div className="p-4 border-b border-slate-100 flex items-center justify-between">
               <h3 className="font-semibold text-slate-700 capitalize">
-                OS Pagas — <span className="text-green-700">{nomeMesComissao}</span>
+                Contas Recebidas — Comissão — <span className="text-green-700">{nomeMesComissao}</span>
               </h3>
-              <p className="text-xs text-slate-400">{osComissao.length} OS</p>
+              <p className="text-xs text-slate-400">{osComissao.length} parcelas</p>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
@@ -1193,7 +1156,7 @@ const Relatorios = () => {
                     <th className="px-4 py-3 text-left font-semibold whitespace-nowrap">Data Recebimento</th>
                     <th className="px-4 py-3 text-center font-semibold whitespace-nowrap">Nº OS</th>
                     <th className="px-4 py-3 text-left font-semibold">Cliente</th>
-                    <th className="px-4 py-3 text-center font-semibold">Situação</th>
+                    <th className="px-4 py-3 text-center font-semibold whitespace-nowrap">Forma Pag.</th>
                     <th className="px-4 py-3 text-right font-semibold whitespace-nowrap">Valor Recebido</th>
                   </tr>
                 </thead>
@@ -1209,8 +1172,8 @@ const Relatorios = () => {
                       <td className="px-4 py-2.5 text-slate-800 max-w-xs truncate" title={r.cliente_nome}>
                         {r.cliente_nome || '—'}
                       </td>
-                      <td className="px-4 py-2.5 text-center">
-                        <BadgeStatus status={r.status || 'Recebido'} />
+                      <td className="px-4 py-2.5 text-center text-slate-600 text-xs">
+                        {r.forma_recebimento || '—'}
                       </td>
                       <td className="px-4 py-2.5 text-right font-bold text-green-700">
                         R$ {fmtMoney(r.valor)}
@@ -1220,7 +1183,7 @@ const Relatorios = () => {
                     <tr>
                       <td colSpan={5} className="px-4 py-10 text-center text-slate-400">
                         <CheckCircle className="w-8 h-8 mx-auto mb-2 opacity-40" />
-                        Nenhuma OS paga em {nomeMesComissao}
+                        Nenhum recebimento (exceto Boleto) em {nomeMesComissao}
                       </td>
                     </tr>
                   )}
@@ -1233,34 +1196,16 @@ const Relatorios = () => {
                           {/* Esquerda */}
                           <div className="space-y-1 text-sm">
                             <div className="text-slate-500">
-                              Quantidade de OS: <strong className="text-slate-800">{osComissao.length}</strong>
+                              Qtd. de parcelas: <strong className="text-slate-800">{osComissao.length}</strong>
                             </div>
                             <div className="text-slate-500">
-                              Valor original total: <strong className="text-slate-800">R$ {fmtMoney(totalComissaoOrig)}</strong>
-                            </div>
-                            <div className="text-slate-500">
-                              Valor baixado total: <strong className="text-green-700">R$ {fmtMoney(totalComissao)}</strong>
-                            </div>
-                            <div className="text-slate-500">
-                              Valor total descontos: <strong className="text-amber-700">R$ {fmtMoney(totalComissaoDesc)}</strong>
+                              Total descontos: <strong className="text-amber-700">R$ {fmtMoney(totalComissaoDesc)}</strong>
                             </div>
                           </div>
                           {/* Direita */}
                           <div className="space-y-1 text-sm text-right">
                             <div className="text-slate-500">
-                              Valor total Recebido: <strong className="text-green-700">R$ {fmtMoney(totalComissao)}</strong>
-                            </div>
-                            <div className="text-slate-500">
-                              Valor total a Receber: <strong className="text-slate-800">R$ 0,00</strong>
-                            </div>
-                            <div className="text-slate-500">
-                              Recebimentos atrasados: <strong className="text-red-600">R$ 0,00</strong>
-                            </div>
-                            <div className="text-slate-500">
-                              Recebimentos para hoje: <strong className="text-amber-700">R$ 0,00</strong>
-                            </div>
-                            <div className="text-slate-500">
-                              Recebimentos futuros: <strong className="text-blue-700">R$ 0,00</strong>
+                              Total Recebido: <strong className="text-green-700 text-base">R$ {fmtMoney(totalComissao)}</strong>
                             </div>
                           </div>
                         </div>
