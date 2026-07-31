@@ -22,6 +22,7 @@ const Pagamentos = () => {
     return () => { document.removeEventListener('visibilitychange', onVisible); clearInterval(interval); };
   }, []);
   const [searchTerm, setSearchTerm] = useState('');
+  const [yearFilter, setYearFilter] = useState('2027');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [cpfFilter, setCpfFilter] = useState('');
@@ -141,6 +142,7 @@ const Pagamentos = () => {
       const q = searchTerm.toLowerCase();
       if (!(p.descricao || '').toLowerCase().includes(q) && !(p.categoria || '').toLowerCase().includes(q)) return false;
     }
+    if (yearFilter && !(p.data || '').startsWith(yearFilter)) return false;
     if (dateFrom && p.data < dateFrom) return false;
     if (dateTo && p.data > dateTo) return false;
     if (cpfFilter) {
@@ -172,6 +174,18 @@ const Pagamentos = () => {
                 className="pl-9 pr-4 py-1.5 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 w-52"
               />
             </div>
+            <select
+              value={yearFilter}
+              onChange={(e) => { setYearFilter(e.target.value); resetPage(); }}
+              className="py-1.5 px-3 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              title="Filtrar por ano"
+            >
+              <option value="">Todos os anos</option>
+              <option value="2024">2024</option>
+              <option value="2025">2025</option>
+              <option value="2026">2026</option>
+              <option value="2027">2027</option>
+            </select>
             <input
               type="date"
               value={dateFrom}
@@ -194,9 +208,9 @@ const Pagamentos = () => {
               onChange={(e) => { setCpfFilter(e.target.value); resetPage(); }}
               className="py-1.5 px-3 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 w-44"
             />
-            {(searchTerm || dateFrom || dateTo || cpfFilter) && (
+            {(searchTerm || yearFilter || dateFrom || dateTo || cpfFilter) && (
               <button
-                onClick={() => { setSearchTerm(''); setDateFrom(''); setDateTo(''); setCpfFilter(''); resetPage(); }}
+                onClick={() => { setSearchTerm(''); setYearFilter(''); setDateFrom(''); setDateTo(''); setCpfFilter(''); resetPage(); }}
                 className="text-sm text-slate-500 hover:text-slate-700 underline"
               >
                 Limpar filtros
