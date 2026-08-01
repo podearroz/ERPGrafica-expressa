@@ -42,10 +42,18 @@ com_desc = [
 ]
 print(f"  {len(com_desc)} OS com descrição preenchida")
 
-# ── Busca todos os numero_os existentes no banco ─────────────────────────────
+# ── Busca todos os numero_os existentes no banco (paginando de 1000 em 1000) ──
 print("Buscando OS no banco...")
-res = sb.table("ordens_servico").select("id, numero_os").range(0, 9999).execute()
-banco = {str(r["numero_os"]).strip(): r["id"] for r in res.data}
+banco = {}
+page = 0
+PAGE = 1000
+while True:
+    res = sb.table("ordens_servico").select("id, numero_os").range(page, page + PAGE - 1).execute()
+    for r in res.data:
+        banco[str(r["numero_os"]).strip()] = r["id"]
+    if len(res.data) < PAGE:
+        break
+    page += PAGE
 print(f"  {len(banco)} OS no banco")
 
 # ── Atualiza uma por uma ──────────────────────────────────────────────────────
@@ -69,6 +77,6 @@ for row in com_desc:
     if atualizadas % 100 == 0:
         print(f"  {atualizadas} atualizadas...")
 
-print(f"\n✅ Concluído!")
+print(f"\nConcluido!")
 print(f"   Atualizadas:     {atualizadas}")
-print(f"   Não encontradas: {nao_encontradas} (OS do VHSYS sem correspondência no banco)")
+print(f"   Nao encontradas: {nao_encontradas} (OS do VHSYS sem correspondencia no banco)")
