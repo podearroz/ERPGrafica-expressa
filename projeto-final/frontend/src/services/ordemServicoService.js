@@ -259,11 +259,14 @@ export const ordemServicoService = {
   async atualizarDeVenda(vendaId, venda) {
     const { data: os } = await supabase
       .from("ordens_servico")
-      .select("id")
+      .select("id, observacoes")
       .eq("venda_id", vendaId)
       .maybeSingle();
 
     if (!os) return null;
+
+    // Preserva observacoes existentes (ex: importadas do VHSYS); só preenche se estiver vazio
+    const novasObs = os.observacoes || (venda.produtos ? `Produtos: ${venda.produtos}` : null);
 
     await supabase.from("ordens_servico").update({
       cliente_id: venda.cliente_id,
@@ -271,7 +274,7 @@ export const ordemServicoService = {
       cliente_telefone: venda.cliente_telefone,
       valor_total: venda.valor,
       valor_final: venda.valor,
-      observacoes: venda.produtos ? `Produtos: ${venda.produtos}` : null,
+      observacoes: novasObs,
       data_abertura: venda.data,
     }).eq("id", os.id);
 
