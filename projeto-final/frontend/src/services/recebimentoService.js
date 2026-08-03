@@ -105,15 +105,37 @@ export const recebimentoService = {
     };
 
     const descontoNum = parseFloat(desconto) || 0;
+
+    // Busca o recebimento para saber o venda_id e valor atual
+    const { data: rec } = await supabase.from("recebimentos").select("valor, venda_id").eq("id", id).single();
+
     if (descontoNum > 0) {
-      const { data: rec } = await supabase.from("recebimentos").select("valor").eq("id", id).single();
       const novoValor = Math.max(0, parseFloat(rec.valor) - descontoNum);
       updates.valor = novoValor;
       const obsDesconto = `Desconto: R$ ${descontoNum.toFixed(2)}`;
       updates.observacao = updates.observacao ? `${obsDesconto} | ${updates.observacao}` : obsDesconto;
     }
 
-    return recebimentoService.update(id, updates);
+    const result = await recebimentoService.update(id, updates);
+
+    // Após baixa, verifica se a venda está totalmente paga e atualiza status
+    const vendaId = rec?.venda_id;
+    if (vendaId) {
+      const { data: venda } = await supabase.from("vendas").select("valor, status").eq("id", vendaId).single();
+      if (venda && venda.status === "Pendente") {
+        const { data: recs } = await supabase
+          .from("recebimentos")
+          .select("valor")
+          .eq("venda_id", vendaId)
+          .eq("status", "Recebido");
+        const totalRecebido = (recs || []).reduce((s, r) => s + parseFloat(r.valor || 0), 0);
+        if (totalRecebido >= parseFloat(venda.valor)) {
+          await supabase.from("vendas").update({ status: "Pago" }).eq("id", vendaId);
+        }
+      }
+    }
+
+    return result;
   },
 
   async marcarParcelado(id, { parcelas, forma_recebimento, data_primeira, observacao }) {
