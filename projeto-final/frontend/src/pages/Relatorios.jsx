@@ -1321,7 +1321,7 @@ const Relatorios = () => {
                           <span className="block text-xs text-slate-400">{v.cliente_telefone}</span>
                         )}
                       </td>
-                      <td className="px-4 py-3 text-slate-600">
+                      <td className="px-4 py-3 text-slate-600" style={{wordBreak:'break-word', whiteSpace:'normal'}}>
                         {v.produtos || '—'}
                       </td>
                       <td className="px-4 py-3 text-center text-slate-500 text-xs font-medium">
