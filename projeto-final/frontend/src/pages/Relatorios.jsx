@@ -444,8 +444,8 @@ const Relatorios = () => {
         return `
         <tr>
           <td>${fdt(v.data)}</td>
-          <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${nome}</td>
-          <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${v.produtos || '—'}</td>
+          <td>${nome}</td>
+          <td>${v.produtos || '—'}</td>
           <td style="text-align:center">${os}</td>
           <td style="text-align:center">${v.status}</td>
           <td style="text-align:right;color:#15803d;font-weight:600">R$ ${fmt(v.valor)}</td>
@@ -1321,7 +1321,7 @@ const Relatorios = () => {
                           <span className="block text-xs text-slate-400">{v.cliente_telefone}</span>
                         )}
                       </td>
-                      <td className="px-4 py-3 text-slate-600 max-w-xs truncate" title={v.produtos}>
+                      <td className="px-4 py-3 text-slate-600">
                         {v.produtos || '—'}
                       </td>
                       <td className="px-4 py-3 text-center text-slate-500 text-xs font-medium">
