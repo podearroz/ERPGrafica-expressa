@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ClipboardList, CheckCircle, XCircle, FileText, Eye, Trash2, Printer, Search, DollarSign, Banknote } from 'lucide-react';
+import { ClipboardList, CheckCircle, XCircle, FileText, Eye, Trash2, Printer, Search, DollarSign, Banknote, Pencil } from 'lucide-react';
 
 const FORMAS_PAGAMENTO = ['Dinheiro', 'PIX', 'Cartão de Débito', 'Cartão de Crédito', 'Boleto', 'Cheque', 'Transferência'];
 import useOrdemServicoStore from '@store/ordemServicoStore';
@@ -205,6 +205,39 @@ const OrdensServico = () => {
   const [pagamentoStatus, setPagamentoStatus] = useState('a_receber'); // 'pago' | 'a_receber'
   const [formaPagamento, setFormaPagamento] = useState('PIX');
   const [dataPagamento, setDataPagamento] = useState(new Date().toISOString().split('T')[0]);
+
+  // ── Editar OS diretamente ─────────────────────────────────────────────────
+  const [showEditarModal, setShowEditarModal] = useState(false);
+  const [editarForm, setEditarForm] = useState({ cliente_nome: '', valor_total: '', data_abertura: '', observacoes: '' });
+
+  const abrirEditar = (os) => {
+    setOsSelecionada(os);
+    setEditarForm({
+      cliente_nome: os.cliente_nome || os.cliente?.nome || '',
+      valor_total: os.valor_total || os.valor_final || '',
+      data_abertura: os.data_abertura || '',
+      observacoes: os.observacoes || '',
+    });
+    setShowEditarModal(true);
+  };
+
+  const handleEditar = async () => {
+    try {
+      const valor = parseFloat(editarForm.valor_total) || 0;
+      await supabase.from('ordens_servico').update({
+        cliente_nome: editarForm.cliente_nome || null,
+        valor_total: valor,
+        valor_final: valor,
+        data_abertura: editarForm.data_abertura,
+        observacoes: editarForm.observacoes || null,
+      }).eq('id', osSelecionada.id);
+      toast.success('OS atualizada com sucesso!');
+      setShowEditarModal(false);
+      fetchOrdensServico();
+    } catch (e) {
+      toast.error('Erro ao atualizar OS: ' + e.message);
+    }
+  };
 
   // ── Baixar pagamento de OS já faturada ───────────────────────────────────
   const [showBaixarModal, setShowBaixarModal] = useState(false);
@@ -552,6 +585,9 @@ const OrdensServico = () => {
                   <button onClick={() => abrirDetalhes(os)} className="text-slate-500 hover:text-slate-700" title="Ver detalhes">
                     <Eye className="w-4 h-4" />
                   </button>
+                  <button onClick={() => abrirEditar(os)} className="text-amber-500 hover:text-amber-700" title="Editar OS">
+                    <Pencil className="w-4 h-4" />
+                  </button>
                   {os.status === 'ABERTA' && (
                     <>
                       <button onClick={() => abrirFaturar(os)} className="text-green-600 hover:text-green-700" title="Faturar">
@@ -856,6 +892,44 @@ const OrdensServico = () => {
             <p className={`text-xs mt-1 ${motivoCancelamento.trim().length < 15 ? 'text-red-500' : 'text-green-600'}`}>
               {motivoCancelamento.trim().length}/15 caracteres mínimos
             </p>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Modal: Editar OS */}
+      <Modal
+        isOpen={showEditarModal}
+        onClose={() => setShowEditarModal(false)}
+        title={`Editar OS ${osSelecionada?.numero_os}`}
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setShowEditarModal(false)}>Cancelar</Button>
+            <Button icon={Pencil} onClick={handleEditar}>Salvar</Button>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Cliente</label>
+            <input className="input" value={editarForm.cliente_nome}
+              onChange={e => setEditarForm(p => ({ ...p, cliente_nome: e.target.value }))}
+              placeholder="Nome do cliente" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Valor (R$)</label>
+            <input type="number" step="0.01" className="input" value={editarForm.valor_total}
+              onChange={e => setEditarForm(p => ({ ...p, valor_total: e.target.value }))} />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Data</label>
+            <input type="date" className="input" value={editarForm.data_abertura}
+              onChange={e => setEditarForm(p => ({ ...p, data_abertura: e.target.value }))} />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Produtos / Observações</label>
+            <textarea className="input resize-none" rows={3} value={editarForm.observacoes}
+              onChange={e => setEditarForm(p => ({ ...p, observacoes: e.target.value }))}
+              placeholder="Descreva os produtos ou serviços..." />
           </div>
         </div>
       </Modal>
