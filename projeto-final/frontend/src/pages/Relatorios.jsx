@@ -252,10 +252,13 @@ const Relatorios = () => {
   const totalVencidoRec = crAtrasados;
 
   // ── Contas a Pagar filtradas pelo período ─────────────────────────────────
+  const EXCLUIR_PAGAR = ['energia casa', 'energisa energia casa'];
   const contasPagar = useMemo(() => {
     return pagamentos
       .filter(p => p.status === 'Pendente')
       .filter(p => {
+        const desc = (p.descricao || '').toLowerCase();
+        if (EXCLUIR_PAGAR.some(ex => desc.includes(ex))) return false;
         if (pagarDateFrom && p.data < pagarDateFrom) return false;
         if (pagarDateTo && p.data > pagarDateTo) return false;
         return true;
