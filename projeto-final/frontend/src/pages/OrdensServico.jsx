@@ -208,7 +208,7 @@ const OrdensServico = () => {
 
   // ── Editar OS diretamente ─────────────────────────────────────────────────
   const [showEditarModal, setShowEditarModal] = useState(false);
-  const [editarForm, setEditarForm] = useState({ cliente_nome: '', valor_total: '', data_abertura: '', observacoes: '' });
+  const [editarForm, setEditarForm] = useState({ cliente_nome: '', valor_total: '', data_abertura: '', observacoes: '', status: 'ABERTA' });
 
   const abrirEditar = (os) => {
     setOsSelecionada(os);
@@ -217,6 +217,7 @@ const OrdensServico = () => {
       valor_total: os.valor_total || os.valor_final || '',
       data_abertura: os.data_abertura || '',
       observacoes: os.observacoes || '',
+      status: os.status || 'ABERTA',
     });
     setShowEditarModal(true);
   };
@@ -230,6 +231,7 @@ const OrdensServico = () => {
         valor_final: valor,
         data_abertura: editarForm.data_abertura,
         observacoes: editarForm.observacoes || null,
+        status: editarForm.status,
       }).eq('id', osSelecionada.id);
       toast.success('OS atualizada com sucesso!');
       setShowEditarModal(false);
@@ -909,6 +911,16 @@ const OrdensServico = () => {
         }
       >
         <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Status</label>
+            <select className="input" value={editarForm.status}
+              onChange={e => setEditarForm(p => ({ ...p, status: e.target.value }))}>
+              <option value="ABERTA">Aberta</option>
+              <option value="FATURADA_SEM_NF">Faturada s/ NF</option>
+              <option value="FATURADA">Faturada</option>
+              <option value="CANCELADA">Cancelada</option>
+            </select>
+          </div>
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">Cliente</label>
             <input className="input" value={editarForm.cliente_nome}
