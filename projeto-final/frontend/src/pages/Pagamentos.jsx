@@ -22,9 +22,9 @@ const Pagamentos = () => {
     return () => { document.removeEventListener('visibilitychange', onVisible); clearInterval(interval); };
   }, []);
   const [searchTerm, setSearchTerm] = useState('');
-  const [yearFilter, setYearFilter] = useState('');
-  const [dateFrom, setDateFrom] = useState('2026-01-01');
-  const [dateTo, setDateTo] = useState('2027-12-31');
+  const [yearFilter, setYearFilter] = useState('2027');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
   const [cpfFilter, setCpfFilter] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [showModal, setShowModal] = useState(false);
@@ -208,9 +208,9 @@ const Pagamentos = () => {
               onChange={(e) => { setCpfFilter(e.target.value); resetPage(); }}
               className="py-1.5 px-3 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 w-44"
             />
-            {(searchTerm || yearFilter || dateFrom !== '2026-01-01' || dateTo !== '2027-12-31' || cpfFilter) && (
+            {(searchTerm || yearFilter || dateFrom || dateTo || cpfFilter) && (
               <button
-                onClick={() => { setSearchTerm(''); setYearFilter(''); setDateFrom('2026-01-01'); setDateTo('2027-12-31'); setCpfFilter(''); resetPage(); }}
+                onClick={() => { setSearchTerm(''); setYearFilter(''); setDateFrom(''); setDateTo(''); setCpfFilter(''); resetPage(); }}
                 className="text-sm text-slate-500 hover:text-slate-700 underline"
               >
                 Limpar filtros

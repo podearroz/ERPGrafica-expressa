@@ -113,8 +113,8 @@ const Relatorios = () => {
   // Filtros independentes para Vendas em Aberto e Pagamento de Contas
   const [vendasDateFrom, setVendasDateFrom] = useState('2000-01-01');
   const [vendasDateTo,   setVendasDateTo]   = useState('2028-12-31');
-  const [pagarDateFrom,  setPagarDateFrom]  = useState('2000-01-01');
-  const [pagarDateTo,    setPagarDateTo]    = useState('2028-12-31');
+  const [pagarDateFrom,  setPagarDateFrom]  = useState('2026-01-01');
+  const [pagarDateTo,    setPagarDateTo]    = useState('2027-12-31');
 
   // Mês para aba de comissão — padrão: mês atual
   const [mesComissao, setMesComissao] = useState(() => today().slice(0, 7));
