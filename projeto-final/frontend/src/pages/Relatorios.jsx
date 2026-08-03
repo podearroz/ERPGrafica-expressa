@@ -110,6 +110,12 @@ const Relatorios = () => {
   const [dateFrom, setDateFrom] = useState(today());
   const [dateTo,   setDateTo]   = useState(today());
 
+  // Filtros independentes para Vendas em Aberto e Pagamento de Contas
+  const [vendasDateFrom, setVendasDateFrom] = useState('2000-01-01');
+  const [vendasDateTo,   setVendasDateTo]   = useState('2028-12-31');
+  const [pagarDateFrom,  setPagarDateFrom]  = useState('2000-01-01');
+  const [pagarDateTo,    setPagarDateTo]    = useState('2028-12-31');
+
   // Mês para aba de comissão — padrão: mês atual
   const [mesComissao, setMesComissao] = useState(() => today().slice(0, 7));
 
@@ -250,12 +256,12 @@ const Relatorios = () => {
     return pagamentos
       .filter(p => p.status === 'Pendente')
       .filter(p => {
-        if (dateFrom && p.data < dateFrom) return false;
-        if (dateTo && p.data > dateTo) return false;
+        if (pagarDateFrom && p.data < pagarDateFrom) return false;
+        if (pagarDateTo && p.data > pagarDateTo) return false;
         return true;
       })
       .sort((a, b) => (a.data || '').localeCompare(b.data || ''));
-  }, [pagamentos, dateFrom, dateTo]);
+  }, [pagamentos, pagarDateFrom, pagarDateTo]);
 
   const totalPagar = contasPagar.reduce((s, p) => s + parseFloat(p.valor || 0), 0);
   const totalVencidoPag = contasPagar
@@ -268,12 +274,12 @@ const Relatorios = () => {
     return vendas
       .filter(v => v.status === 'Pendente')
       .filter(v => {
-        if (dateFrom && v.data < dateFrom) return false;
-        if (dateTo   && v.data > dateTo)   return false;
+        if (vendasDateFrom && v.data < vendasDateFrom) return false;
+        if (vendasDateTo   && v.data > vendasDateTo)   return false;
         return true;
       })
       .sort((a, b) => (b.data || '').localeCompare(a.data || ''));
-  }, [vendas, dateFrom, dateTo]);
+  }, [vendas, vendasDateFrom, vendasDateTo]);
 
   const totalVendasAberto = vendasAberto.reduce((s, v) => s + parseFloat(v.valor || 0), 0);
 
@@ -701,7 +707,9 @@ const Relatorios = () => {
                   {CONTAS.map(c => <option key={c} value={c}>{c === 'TODOS' ? 'Todas as contas' : c}</option>)}
                 </select>
               )}
-              {aba !== 'resumo' && aba !== 'comissao' && <AtalhoPeriodo onSelect={setPeriodo} />}
+              {aba !== 'resumo' && aba !== 'comissao' && aba !== 'vendas_aberto' && aba !== 'pagar' && (
+                <AtalhoPeriodo onSelect={setPeriodo} />
+              )}
               {aba === 'comissao' ? (
                 <input
                   type="month"
@@ -709,6 +717,38 @@ const Relatorios = () => {
                   onChange={e => setMesComissao(e.target.value)}
                   className="py-1.5 px-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
+              ) : aba === 'vendas_aberto' ? (
+                <>
+                  <input
+                    type="date"
+                    value={vendasDateFrom}
+                    onChange={e => setVendasDateFrom(e.target.value)}
+                    className="py-1.5 px-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                  <span className="text-slate-400 text-sm">até</span>
+                  <input
+                    type="date"
+                    value={vendasDateTo}
+                    onChange={e => setVendasDateTo(e.target.value)}
+                    className="py-1.5 px-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </>
+              ) : aba === 'pagar' ? (
+                <>
+                  <input
+                    type="date"
+                    value={pagarDateFrom}
+                    onChange={e => setPagarDateFrom(e.target.value)}
+                    className="py-1.5 px-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                  <span className="text-slate-400 text-sm">até</span>
+                  <input
+                    type="date"
+                    value={pagarDateTo}
+                    onChange={e => setPagarDateTo(e.target.value)}
+                    className="py-1.5 px-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </>
               ) : aba !== 'resumo' && (
                 <>
                   <input
