@@ -68,11 +68,23 @@ export function buildNFeXml({ numero, serie = 1, naturezaOperacao = 'Venda de pr
   const vDesc = parseFloat(desconto) || 0;
   const vNF   = Math.max(0, vProd - vDesc);
 
+  // Distribui desconto proporcional por item (SEFAZ 537: soma vDesc itens = ICMSTot.vDesc)
+  const descontosCents = itens.map(item => {
+    if (vDesc === 0 || vProd === 0) return 0;
+    return Math.round((parseFloat(item.valor_total || 0) / vProd) * vDesc * 100);
+  });
+  // Corrige diferença de arredondamento no último item
+  const totalDescCents = descontosCents.reduce((a, b) => a + b, 0);
+  const diffCents = Math.round(vDesc * 100) - totalDescCents;
+  if (descontosCents.length > 0) descontosCents[descontosCents.length - 1] += diffCents;
+
   // Montagem dos itens
   const detList = itens.map((item, idx) => {
-    const vProdItem = fmt2(item.valor_total);
-    const qCom      = fmt4(item.quantidade || 1);
-    const vUnCom    = fmt2(item.valor_unitario || item.valor_total);
+    const vProdItem    = fmt2(item.valor_total);
+    const qCom         = fmt4(item.quantidade || 1);
+    const vUnCom       = fmt2(item.valor_unitario || item.valor_total);
+    const vDescItem    = (descontosCents[idx] / 100).toFixed(2);
+    const hasDescItem  = descontosCents[idx] > 0;
     return {
       '@nItem': String(idx + 1),
       prod: {
@@ -89,6 +101,7 @@ export function buildNFeXml({ numero, serie = 1, naturezaOperacao = 'Venda de pr
         uTrib:    item.unidade || 'UN',
         qTrib:    qCom,
         vUnTrib:  vUnCom,
+        ...(hasDescItem ? { vDesc: vDescItem } : {}),
         indTot:   '1',
       },
       imposto: {
