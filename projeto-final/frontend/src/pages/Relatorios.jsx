@@ -425,7 +425,7 @@ const Relatorios = () => {
           </td>
         </tr>`;
     } else if (aba === 'pagar') {
-      titulo = `Pagamento de Contas — ${fdt(dateFrom)} a ${fdt(dateTo)}`;
+      titulo = `Pagamento de Contas — ${fdt(pagarDateFrom)} a ${fdt(pagarDateTo)}`;
       thead = `<tr><th style="width:60px">Vencimento</th><th>Descrição</th><th style="width:60px;text-align:center">Status</th><th style="width:80px;text-align:right">Valor</th></tr>`;
       tbody = contasPagar.map(p => `
         <tr>
@@ -436,7 +436,7 @@ const Relatorios = () => {
         </tr>`).join('');
       tfoot = `<tr style="border-top:2px solid #334155"><td colspan="3" style="text-align:right;font-weight:700">Total:</td><td style="text-align:right;font-weight:700;color:#dc2626;font-size:12px">R$ ${fmt(contasPagar.reduce((s,p)=>s+parseFloat(p.valor||0),0))}</td></tr>`;
     } else if (aba === 'vendas_aberto') {
-      titulo = `Vendas em Aberto — ${fdt(dateFrom)} a ${fdt(dateTo)}`;
+      titulo = `Vendas em Aberto — ${fdt(vendasDateFrom)} a ${fdt(vendasDateTo)}`;
       thead = `<tr><th style="width:60px">Data</th><th>Cliente</th><th>Produtos/Serviços</th><th style="width:60px;text-align:center">OS</th><th style="width:60px;text-align:center">Status</th><th style="width:80px;text-align:right">Valor</th></tr>`;
       tbody = vendasAberto.map(v => {
         const nome = v.cliente?.nome || v.cliente_nome || '(Avulso)';
@@ -1279,7 +1279,7 @@ const Relatorios = () => {
             <div className="bg-slate-50 border border-slate-200 rounded-xl p-4">
               <p className="text-sm text-slate-500 font-medium">Período</p>
               <p className="text-base font-semibold text-slate-700 mt-1">
-                {fmtDate(dateFrom)} até {fmtDate(dateTo)}
+                {fmtDate(vendasDateFrom)} até {fmtDate(vendasDateTo)}
               </p>
             </div>
             <div className="bg-blue-50 border border-blue-100 rounded-xl p-4">
@@ -1294,7 +1294,7 @@ const Relatorios = () => {
           <Card>
             <div className="p-4 border-b border-slate-100">
               <h3 className="font-semibold text-slate-700">
-                Vendas em Aberto — {fmtDate(dateFrom)} até {fmtDate(dateTo)}
+                Vendas em Aberto — {fmtDate(vendasDateFrom)} até {fmtDate(vendasDateTo)}
               </h3>
             </div>
             <div className="overflow-x-auto">
@@ -1524,7 +1524,7 @@ const Relatorios = () => {
           <Card>
             <div className="p-4 border-b border-slate-100">
               <h3 className="font-semibold text-slate-700">
-                Pagamento de Contas — {dateFrom ? fmtDate(dateFrom) : '...'} até {dateTo ? fmtDate(dateTo) : '...'}
+                Pagamento de Contas — {pagarDateFrom ? fmtDate(pagarDateFrom) : '...'} até {pagarDateTo ? fmtDate(pagarDateTo) : '...'}
               </h3>
             </div>
             <div className="overflow-x-auto">
