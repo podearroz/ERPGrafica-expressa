@@ -18,12 +18,12 @@ function App() {
     { id: 'dashboard', label: 'Dashboard', icon: BarChart3, component: Dashboard },
     { id: 'clientes', label: 'Clientes', icon: Users, component: Clientes },
     { id: 'vendas', label: 'Vendas', icon: ShoppingCart, component: Vendas },
-    { id: 'estoque', label: 'Estoque', icon: Package, component: Estoque },
     { id: 'os', label: 'Ordens de Serviço', icon: ClipboardList, component: OrdensServico },
     { id: 'recebimentos', label: 'Recebimentos', icon: TrendingUp, component: Recebimentos },
     { id: 'pagamentos', label: 'Pagamentos', icon: TrendingDown, component: Pagamentos },
     { id: 'notas', label: 'Notas Fiscais', icon: FileText, component: NotasFiscais },
-    { id: 'relatorios', label: 'Relatórios', icon: BarChart3, component: Relatorios }
+    { id: 'relatorios', label: 'Relatórios', icon: BarChart3, component: Relatorios },
+    { id: 'estoque', label: 'Estoque', icon: Package, component: Estoque }
   ];
   
   const ActiveComponent = tabs.find(tab => tab.id === activeTab)?.component || Dashboard;

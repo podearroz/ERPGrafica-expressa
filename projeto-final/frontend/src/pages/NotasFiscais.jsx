@@ -144,7 +144,7 @@ function interpretarErroNFe(cStat, xMotivo) {
 
 const ITEM_VAZIO = {
   codigo: '102', descricao: '', ncm: '49111090', cfop: '5101', cst: '0102',
-  unidade: 'UN', quantidade: '1', valor_unitario: '', valor_total: '',
+  unidade: 'UN', quantidade: '', valor_unitario: '', valor_total: '',
   origem: '0', ipi_percent: '0', icms_percent: '0',
 };
 
