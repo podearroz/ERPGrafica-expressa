@@ -311,8 +311,9 @@ export function buildNFeXml({ numero, serie = 1, naturezaOperacao = 'Venda de pr
         })(),
         pag: {
           detPag: {
-            tPag: formaPagamento,
-            vPag: fmt2(vNF),
+            // Devolução (finNFe=4): sem pagamento (tPag=90, vPag=0)
+            tPag: finNFe === '4' ? '90' : formaPagamento,
+            vPag: finNFe === '4' ? '0.00' : fmt2(vNF),
           },
         },
         infAdic: {
