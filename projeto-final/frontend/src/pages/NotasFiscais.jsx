@@ -145,7 +145,7 @@ function interpretarErroNFe(cStat, xMotivo) {
 const ITEM_VAZIO = {
   codigo: '102', descricao: '', ncm: '49111090', cfop: '5101', cst: '0102',
   unidade: 'UN', quantidade: '1', valor_unitario: '', valor_total: '',
-  origem: '0', ipi_percent: '0', icms_percent: '0',
+  origem: '0', ipi_percent: '0', icms_percent: '0', bcalc_icms: '0',
 };
 
 // ─── Badge status ─────────────────────────────────────────────────────────────
@@ -531,7 +531,7 @@ const ModalEmitirNFe = ({ nota, onClose, onSucesso }) => {
             valor_unitario: parseFloat(it.valor_unitario),
             valor_total: parseFloat(it.valor_total),
             ipi_percent: parseFloat(it.ipi_percent) || 0,
-            icms_percent: parseFloat(it.icms_percent) || 0,
+            icms_percent: parseFloat(it.icms_percent) || 0, bcalc_icms: parseFloat(it.bcalc_icms) || 0,
           })),
           totais: {
             valor_produtos: valorProdutos,
@@ -660,7 +660,7 @@ const ModalEmitirNFe = ({ nota, onClose, onSucesso }) => {
           valor_unitario: parseFloat(it.valor_unitario),
           valor_total: parseFloat(it.valor_total),
           ipi_percent: parseFloat(it.ipi_percent) || 0,
-          icms_percent: parseFloat(it.icms_percent) || 0,
+          icms_percent: parseFloat(it.icms_percent) || 0, bcalc_icms: parseFloat(it.bcalc_icms) || 0,
         })),
         destinatario_json: dest, destinatario_nome: dest.nome,
         forma_pagamento: totais.forma_pagamento,
@@ -857,6 +857,9 @@ const ModalEmitirNFe = ({ nota, onClose, onSucesso }) => {
                         </F>
                         <Inp label="Alíq. IPI %" type="number" step="0.01" value={it.ipi_percent} onChange={e => updateItem(i, 'ipi_percent', e.target.value)} placeholder="0,00 (Simples: 0)" />
                         <Inp label="Alíq. ICMS %" type="number" step="0.01" value={it.icms_percent} onChange={e => updateItem(i, 'icms_percent', e.target.value)} placeholder="0,00 (Simples: 0)" />
+                        {it.cst === '0900' && (
+                          <Inp label="BC Calc ICMS (R$)" type="number" step="0.01" value={it.bcalc_icms} onChange={e => updateItem(i, 'bcalc_icms', e.target.value)} placeholder="Base de cálculo ICMS" />
+                        )}
                       </div>
                       <div className="grid grid-cols-3 gap-3">
                         <Inp label="Qtde. *" type="number" step="0.001" value={it.quantidade} onChange={e => updateItem(i, 'quantidade', e.target.value)} placeholder="Ex: 1" />
