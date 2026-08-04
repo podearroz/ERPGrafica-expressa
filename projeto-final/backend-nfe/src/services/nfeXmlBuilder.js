@@ -171,7 +171,7 @@ export function buildNFeXml({ numero, serie = 1, naturezaOperacao = 'Venda de pr
           indPres:  '1',       // presencial
           procEmi:  '0',
           verProc:  '4.00',    // versão do aplicativo emissor (padrão NF-e 4.00)
-          ...(chaveNFeRef ? { NFref: { refNFe: String(chaveNFeRef).replace(/[^0-9]/g, '') } } : {}),
+          ...((() => { const k = String(chaveNFeRef).replace(/[^0-9]/g, ''); return k.length === 44 ? { NFref: { refNFe: k } } : {}; })()),
         },
         emit: {
           CNPJ:  cnpj,

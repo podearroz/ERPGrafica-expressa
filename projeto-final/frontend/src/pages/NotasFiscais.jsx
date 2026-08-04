@@ -483,6 +483,9 @@ const ModalEmitirNFe = ({ nota, onClose, onSucesso }) => {
     if (aba === 0 && (!ident.numero || !ident.data || !ident.natureza_operacao)) {
       toast.error('Preencha: Número, Data e Natureza da Operação.'); return false;
     }
+    if (aba === 0 && ident.finalidade === '4' && ident.chave_nfe_ref.replace(/[^0-9]/g, '').length !== 44) {
+      toast.error('Para devolução, informe a Chave NF-e Referenciada com exatamente 44 dígitos.'); return false;
+    }
     if (aba === 1 && (!dest.nome || !dest.cpf_cnpj)) {
       toast.error('Preencha: Nome/Razão Social e CPF/CNPJ.'); return false;
     }

@@ -185,6 +185,18 @@ export async function emitirNFe(req, res) {
       });
     }
 
+
+    // ── Valida NFref obrigatório para devolução (finNFe=4) ─────────────────
+    if (finNFe === '4') {
+      const chaveRefClean = String(chaveNFeRef).replace(/[^0-9]/g, '');
+      if (chaveRefClean.length !== 44) {
+        return res.status(400).json({
+          success: false,
+          error: 'NF-e de devolução exige a Chave NF-e Referenciada (44 dígitos da nota original). Preencha o campo na Aba 1.',
+        });
+      }
+    }
+
     // ── Valida CPF/CNPJ do destinatário ANTES de consumir número ───────────
     const docDestValidacao = String(destinatario.cpf_cnpj || '').replace(/\D/g, '');
     if (docDestValidacao && docDestValidacao.length !== 11 && docDestValidacao.length !== 14) {
