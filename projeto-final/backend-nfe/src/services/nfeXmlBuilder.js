@@ -59,7 +59,8 @@ export function buildNFeXml({ numero, serie = 1, naturezaOperacao = 'Venda de pr
 
   // idDest: 1=interna, 2=interestadual, 3=exterior — determinado pelo CFOP do primeiro item
   const primeiroCfop = String((itens && itens[0]?.cfop) || '5101');
-  const idDest = primeiroCfop.startsWith('7') ? '3' : primeiroCfop.startsWith('6') ? '2' : '1';
+  // 1xxx/5xxx=interna, 2xxx/6xxx=interestadual, 3xxx/7xxx=exterior
+  const idDest = ['3','7'].includes(primeiroCfop[0]) ? '3' : ['2','6'].includes(primeiroCfop[0]) ? '2' : '1';
 
   console.log(`[XML] chave=${chave} (44 dígitos: ${chave.length === 44 ? 'OK' : 'ERRO'})`);
   console.log(`[XML] tpAmb=${tpAmb} dhEmi=${dhEmi} cDV=${cDV}`);
