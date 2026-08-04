@@ -122,8 +122,8 @@ export function buildNFeXml({ numero, serie = 1, naturezaOperacao = 'Venda de pr
           // Extrai CSOSN do campo cst do item (ex: '0102' -> '102', '0400' -> '400')
           const csosnRaw = String(item.cst || '0102').replace(/^0+/, '') || '102';
           const csosn = csosnRaw.length <= 3 ? csosnRaw : csosnRaw.slice(-3);
-          const tagIcms = csosn === '400' ? 'ICMSSN400'
-                        : csosn === '500' ? 'ICMSSN500'
+          // ICMSSN102 aceita CSOSN: 102, 103, 300, 400 (schema NF-e 4.00)
+          const tagIcms = csosn === '500' ? 'ICMSSN500'
                         : csosn === '900' ? 'ICMSSN900'
                         : 'ICMSSN102';
           return { [tagIcms]: { orig: String(item.origem || '0'), CSOSN: csosn } };
