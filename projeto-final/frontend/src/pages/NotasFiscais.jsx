@@ -852,7 +852,7 @@ const ModalEmitirNFe = ({ nota, onClose, onSucesso }) => {
                       </div>
                       <div className="grid grid-cols-3 gap-3">
                         <Inp label="Qtde. *" type="number" step="0.001" value={it.quantidade} onChange={e => updateItem(i, 'quantidade', e.target.value)} placeholder="Ex: 1" />
-                        <Inp label="Valor Unit. (R$) *" type="number" step="0.01" value={it.valor_unitario} onChange={e => updateItem(i, 'valor_unitario', e.target.value)} onBlur={e => { const v = parseFloat(e.target.value); if (!isNaN(v)) updateItem(i, 'valor_unitario', v.toFixed(2)); }} placeholder="Ex: 2000,00" />
+                        <Inp label="Valor Unit. (R$) *" type="number" step="0.000000001" value={it.valor_unitario} onChange={e => updateItem(i, 'valor_unitario', e.target.value)} onBlur={e => { const v = parseFloat(e.target.value); if (!isNaN(v)) updateItem(i, 'valor_unitario', v.toFixed(9)); }} placeholder="Ex: 30,000000000" />
                         <F label="Valor Total (R$) — calculado">
                           <input className="input bg-slate-50 text-slate-600 font-semibold" readOnly value={it.valor_total} />
                         </F>

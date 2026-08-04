@@ -33,8 +33,9 @@ export function gerarChaveAcesso({ cUF, aamm, cnpj, serie, nNF, cNF }) {
   return { chave: chave43 + cDV, cNF: cNFPad, cDV: String(cDV) };
 }
 
-function fmt2(n) { return parseFloat(n || 0).toFixed(2); }
-function fmt4(n) { return parseFloat(n || 0).toFixed(4); }
+function fmt2(n)  { return parseFloat(n || 0).toFixed(2); }
+function fmt4(n)  { return parseFloat(n || 0).toFixed(4); }
+function fmt10(n) { return parseFloat(n || 0).toFixed(10); }
 
 export function buildNFeXml({ numero, serie = 1, naturezaOperacao = 'Venda de producao do estabelecimento', destinatario, itens, formaPagamento = '01', observacoes = '', transporte = {}, desconto = 0, valorIcms = 0, valorBcIcms = 0, valorFrete = 0, valorSeguro = 0, valorDespesas = 0, valorTotTrib = 0, finNFe = '1', tpNF = '1' }) {
   // tpAmb obrigatoriamente via variável de ambiente
@@ -88,7 +89,7 @@ export function buildNFeXml({ numero, serie = 1, naturezaOperacao = 'Venda de pr
   const detList = itens.map((item, idx) => {
     const vProdItem    = fmt2(item.valor_total);
     const qCom         = fmt4(item.quantidade || 1);
-    const vUnCom       = fmt2(item.valor_unitario || item.valor_total);
+    const vUnCom       = fmt10(item.valor_unitario || item.valor_total);
     const vDescItem    = (descontosCents[idx] / 100).toFixed(2);
     const hasDescItem  = descontosCents[idx] > 0;
     // vTotTrib por item: proporcional ao valor total do item em relação ao total da nota
@@ -110,7 +111,7 @@ export function buildNFeXml({ numero, serie = 1, naturezaOperacao = 'Venda de pr
         cEANTrib: 'SEM GTIN',
         uTrib:    item.unidade || 'UN',
         qTrib:    qCom,
-        vUnTrib:  vUnCom,
+        vUnTrib:  fmt10(item.valor_unitario || item.valor_total),
         ...(hasDescItem ? { vDesc: vDescItem } : {}),
         indTot:   '1',
       },

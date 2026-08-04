@@ -668,7 +668,8 @@ export async function downloadDANFE(req, res) {
     const pagLabel = PAGTO_LABELS[tPag] || 'Outros';
 
     // Formatadores
-    const fmt2   = v => parseFloat(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 });
+    const fmt2   = v => parseFloat(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const fmt9   = v => parseFloat(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 9, maximumFractionDigits: 9 });
     const fmtQtd = v => parseFloat(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 4, maximumFractionDigits: 4 });
     const fmtDoc = d => {
       const s = String(d || '').replace(/\D/g, '');
@@ -1185,7 +1186,7 @@ export async function downloadDANFE(req, res) {
         item.cfop || '5101',
         item.produto?.unidade_medida || item.unidade || 'UN',
         fmtQtd(item.quantidade || 1),
-        fmt2(item.valor_unitario || 0),
+        fmt9(item.valor_unitario || 0),
         fmt2(item.valor_total    || 0),
         fmt2(bcCalcItem),
         fmt2(vlIcmsItem),
