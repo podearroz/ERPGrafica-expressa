@@ -213,7 +213,7 @@ const ModalEmitirNFe = ({ nota, onClose, onSucesso }) => {
     hora_saida: nota.hora_saida || '',
     natureza_operacao: 'Venda de produção do estabelecimento',
     tipo_operacao: '1', finalidade: '1', tipo: nota.tipo || 'NF-e',
-    vendedor: '',
+    vendedor: '', chave_nfe_ref: '',
   });
 
   const [dest, setDest] = useState({
@@ -519,7 +519,7 @@ const ModalEmitirNFe = ({ nota, onClose, onSucesso }) => {
           numero: ident.numero, serie: ident.serie, data: ident.data,
           data_saida: ident.data_saida, hora_saida: ident.hora_saida,
           natureza_operacao: ident.natureza_operacao,
-          tipo_operacao: ident.tipo_operacao, finalidade: ident.finalidade,
+          tipo_operacao: ident.tipo_operacao, finalidade: ident.finalidade, chave_nfe_ref: ident.chave_nfe_ref,
           tipo: ident.tipo, vendedor: ident.vendedor,
           itens: itens.map(it => ({
             codigo: it.codigo, descricao: it.descricao, ncm: it.ncm,
@@ -758,6 +758,11 @@ const ModalEmitirNFe = ({ nota, onClose, onSucesso }) => {
                     <Inp label="Hora de Saída *" type="time" value={ident.hora_saida} onChange={e => setI('hora_saida', e.target.value)} />
                   </div>
                   <Inp label="Vendedor" value={ident.vendedor} onChange={e => setI('vendedor', e.target.value)} placeholder="Nome do vendedor responsável (opcional)" />
+                  {ident.finalidade === '4' && (
+                    <Inp label="Chave NF-e Referenciada (44 dígitos) *" value={ident.chave_nfe_ref}
+                      onChange={e => setI('chave_nfe_ref', e.target.value.replace(/[^0-9]/g, '').slice(0, 44))}
+                      placeholder="Informe a chave de acesso da NF-e original" maxLength={44} />
+                  )}
                 </div>
               )}
 

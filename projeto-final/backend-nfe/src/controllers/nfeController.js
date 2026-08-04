@@ -176,6 +176,7 @@ export async function emitirNFe(req, res) {
     const valorTotTrib     = parseFloat(body.venda?.totais?.valor_tot_trib ?? body.totais?.valor_tot_trib ?? 0);
     const finNFe           = String(body.venda?.finalidade   ?? body.finalidade   ?? '1');
     const tpNF             = String(body.venda?.tipo_operacao ?? body.tipo_operacao ?? '1');
+    const chaveNFeRef      = String(body.venda?.chave_nfe_ref  ?? body.chave_nfe_ref  ?? '');
 
     if (!destinatario || !itens?.length) {
       return res.status(400).json({
@@ -218,7 +219,7 @@ export async function emitirNFe(req, res) {
 
     // ── 2. Gera e assina o XML ─────────────────────────────────────────────
     console.log(`📝 Gerando XML NF-e nº ${numero}...`);
-    const { xmlStr, chave } = buildNFeXml({ numero, serie, destinatario, itens, formaPagamento, naturezaOperacao, observacoes, transporte, desconto, valorBcIcms, valorIcms, valorFrete, valorSeguro, valorDespesas, valorTotTrib, finNFe, tpNF });
+    const { xmlStr, chave } = buildNFeXml({ numero, serie, destinatario, itens, formaPagamento, naturezaOperacao, observacoes, transporte, desconto, valorBcIcms, valorIcms, valorFrete, valorSeguro, valorDespesas, valorTotTrib, finNFe, tpNF, chaveNFeRef });
 
     console.log('🔏 Assinando XML com certificado digital...');
     const xmlAssinado = assinarXml(xmlStr);

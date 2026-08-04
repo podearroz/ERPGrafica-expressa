@@ -37,7 +37,7 @@ function fmt2(n)  { return parseFloat(n || 0).toFixed(2); }
 function fmt4(n)  { return parseFloat(n || 0).toFixed(4); }
 function fmt10(n) { return parseFloat(n || 0).toFixed(10); }
 
-export function buildNFeXml({ numero, serie = 1, naturezaOperacao = 'Venda de producao do estabelecimento', destinatario, itens, formaPagamento = '01', observacoes = '', transporte = {}, desconto = 0, valorIcms = 0, valorBcIcms = 0, valorFrete = 0, valorSeguro = 0, valorDespesas = 0, valorTotTrib = 0, finNFe = '1', tpNF = '1' }) {
+export function buildNFeXml({ numero, serie = 1, naturezaOperacao = 'Venda de producao do estabelecimento', destinatario, itens, formaPagamento = '01', observacoes = '', transporte = {}, desconto = 0, valorIcms = 0, valorBcIcms = 0, valorFrete = 0, valorSeguro = 0, valorDespesas = 0, valorTotTrib = 0, finNFe = '1', tpNF = '1', chaveNFeRef = '' }) {
   // tpAmb obrigatoriamente via variável de ambiente
   const tpAmb = process.env.NODE_ENV === 'producao' ? '1' : '2';
   const cUF   = String(process.env.SEFAZ_CODIGO_UF || '11');
@@ -171,6 +171,7 @@ export function buildNFeXml({ numero, serie = 1, naturezaOperacao = 'Venda de pr
           indPres:  '1',       // presencial
           procEmi:  '0',
           verProc:  '4.00',    // versão do aplicativo emissor (padrão NF-e 4.00)
+          ...(chaveNFeRef ? { NFref: { refNFe: String(chaveNFeRef).replace(/[^0-9]/g, '') } } : {}),
         },
         emit: {
           CNPJ:  cnpj,
