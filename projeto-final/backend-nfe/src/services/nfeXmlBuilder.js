@@ -36,7 +36,7 @@ export function gerarChaveAcesso({ cUF, aamm, cnpj, serie, nNF, cNF }) {
 function fmt2(n) { return parseFloat(n || 0).toFixed(2); }
 function fmt4(n) { return parseFloat(n || 0).toFixed(4); }
 
-export function buildNFeXml({ numero, serie = 1, naturezaOperacao = 'Venda de producao do estabelecimento', destinatario, itens, formaPagamento = '01', observacoes = '', transporte = {}, desconto = 0, valorIcms = 0, valorFrete = 0, valorSeguro = 0, valorDespesas = 0, valorTotTrib = 0, finNFe = '1', tpNF = '1' }) {
+export function buildNFeXml({ numero, serie = 1, naturezaOperacao = 'Venda de producao do estabelecimento', destinatario, itens, formaPagamento = '01', observacoes = '', transporte = {}, desconto = 0, valorIcms = 0, valorBcIcms = 0, valorFrete = 0, valorSeguro = 0, valorDespesas = 0, valorTotTrib = 0, finNFe = '1', tpNF = '1' }) {
   // tpAmb obrigatoriamente via variável de ambiente
   const tpAmb = process.env.NODE_ENV === 'producao' ? '1' : '2';
   const cUF   = String(process.env.SEFAZ_CODIGO_UF || '11');
@@ -70,6 +70,7 @@ export function buildNFeXml({ numero, serie = 1, naturezaOperacao = 'Venda de pr
   const vSeg   = parseFloat(valorSeguro)  || 0;
   const vOutro = parseFloat(valorDespesas)|| 0;
   const vICMS  = parseFloat(valorIcms)    || 0;
+  const vBC    = parseFloat(valorBcIcms)  || 0;
   const vTTrib = parseFloat(valorTotTrib) || 0;
   const vNF    = Math.max(0, vProd + vFrete + vSeg + vOutro - vDesc);
 
@@ -218,7 +219,7 @@ export function buildNFeXml({ numero, serie = 1, naturezaOperacao = 'Venda de pr
         det: detList,
         total: {
           ICMSTot: {
-            vBC:        '0.00',
+            vBC:        fmt2(vBC),
             vICMS:      fmt2(vICMS),
             vICMSDeson: '0.00',
             vFCP:       '0.00',

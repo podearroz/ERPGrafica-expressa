@@ -88,7 +88,7 @@ async function parsearNFeXml(xmlStr) {
     })),
 
     totais: {
-      bc_icms:       parseFloat(_t(tot?.vBC)       || 0),
+      bc_icms:       parseFloat(_t(tot?.vBC)        || 0),
       valor_icms:    parseFloat(_t(tot?.vICMS)     || 0),
       bc_icms_st:    parseFloat(_t(tot?.vBCST)     || 0),
       valor_icms_st: parseFloat(_t(tot?.vST)       || 0),
@@ -168,6 +168,7 @@ export async function emitirNFe(req, res) {
     const observacoes      = body.venda?.observacoes      ?? body.venda?.detalhes?.observacoes ?? body.observacoes ?? '';
     const transporte       = body.venda?.transporte       ?? body.transporte  ?? {};
     const desconto         = parseFloat(body.venda?.totais?.desconto       ?? body.totais?.desconto       ?? body.desconto     ?? 0);
+    const valorBcIcms      = parseFloat(body.venda?.totais?.bc_icms        ?? body.totais?.bc_icms        ?? 0);
     const valorIcms        = parseFloat(body.venda?.totais?.valor_icms     ?? body.totais?.valor_icms     ?? 0);
     const valorFrete       = parseFloat(body.venda?.totais?.valor_frete    ?? body.totais?.valor_frete    ?? 0);
     const valorSeguro      = parseFloat(body.venda?.totais?.valor_seguro   ?? body.totais?.valor_seguro   ?? 0);
@@ -217,7 +218,7 @@ export async function emitirNFe(req, res) {
 
     // ── 2. Gera e assina o XML ─────────────────────────────────────────────
     console.log(`📝 Gerando XML NF-e nº ${numero}...`);
-    const { xmlStr, chave } = buildNFeXml({ numero, serie, destinatario, itens, formaPagamento, naturezaOperacao, observacoes, transporte, desconto, valorIcms, valorFrete, valorSeguro, valorDespesas, valorTotTrib, finNFe, tpNF });
+    const { xmlStr, chave } = buildNFeXml({ numero, serie, destinatario, itens, formaPagamento, naturezaOperacao, observacoes, transporte, desconto, valorBcIcms, valorIcms, valorFrete, valorSeguro, valorDespesas, valorTotTrib, finNFe, tpNF });
 
     console.log('🔏 Assinando XML com certificado digital...');
     const xmlAssinado = assinarXml(xmlStr);
@@ -1145,19 +1146,37 @@ export async function downloadDANFE(req, res) {
     y += thH;
 
     const rowH = 11;
-    // Pré-calcula total de produtos para proporcionalizar vTotTrib por item
+    // Pré-calcula total de produtos para proporcionalizar valores por item
     const totalProdutosItens = itens.reduce((s, i) => s + parseFloat(i.valor_total || 0), 0);
-    const notaTotTrib = parseFloat(nota.totais?.valor_tot_trib || 0);
+    const notaTotTrib  = parseFloat(nota.totais?.valor_tot_trib || 0);
+    const notaBcIcms   = parseFloat(nota.totais?.bc_icms        || 0);
+    const notaVlIcms   = parseFloat(nota.totais?.valor_icms     || 0);
     // Linhas dos itens
     itens.forEach(item => {
-      // valor aprox. tributos por item: usa o do XML (vTotTrib por det) se disponível,
-      // senão proporciona o total da nota pelo valor do item
+      const itemValor = parseFloat(item.valor_total || 0);
+      const proporcao = totalProdutosItens > 0 ? itemValor / totalProdutosItens : 0;
+
+      // V.APROX TRIBUTOS: usa vTotTrib do XML por det se disponível, senão proporcional
       const itemVt = parseFloat(item.valor_tot_trib || 0);
-      const vApTrib = itemVt > 0
-        ? itemVt
-        : (notaTotTrib > 0 && totalProdutosItens > 0
-            ? notaTotTrib * parseFloat(item.valor_total || 0) / totalProdutosItens
-            : 0);
+      const vApTrib = itemVt > 0 ? itemVt : (notaTotTrib > 0 ? notaTotTrib * proporcao : 0);
+
+      // B.CALC ICMS: usa valor do item se disponível, senão proporcional dos totais
+      const bcCalcItem = parseFloat(item.bcalc_icms || 0) > 0
+        ? parseFloat(item.bcalc_icms)
+        : (notaBcIcms > 0 ? notaBcIcms * proporcao : 0);
+
+      // VALOR ICMS: usa valor do item se disponível, senão proporcional dos totais
+      const vlIcmsItem = parseFloat(item.valor_icms || 0) > 0
+        ? parseFloat(item.valor_icms)
+        : (notaVlIcms > 0 ? notaVlIcms * proporcao : 0);
+
+      // ALÍQ. ICMS: usa aliq_icms explícito ou icms_percent do formulário
+      const aliqIcms = item.aliq_icms != null ? parseFloat(item.aliq_icms)
+        : (item.icms_percent != null ? parseFloat(item.icms_percent) : 0);
+      // ALÍQ. IPI: usa aliq_ipi explícito ou ipi_percent do formulário
+      const aliqIpi = item.aliq_ipi != null ? parseFloat(item.aliq_ipi)
+        : (item.ipi_percent != null ? parseFloat(item.ipi_percent) : 0);
+
       const row = [
         item.produto?.codigo || item.codigo || '',
         item.descricao || item.produto?.nome || '',
@@ -1168,12 +1187,11 @@ export async function downloadDANFE(req, res) {
         fmtQtd(item.quantidade || 1),
         fmt2(item.valor_unitario || 0),
         fmt2(item.valor_total    || 0),
-        fmt2(item.bcalc_icms     || 0),
-        fmt2(item.valor_icms     || 0),
+        fmt2(bcCalcItem),
+        fmt2(vlIcmsItem),
         fmt2(item.valor_ipi      || 0),
-        // FIX #6: ALÍQ. ICMS e ALÍQ. IPI sempre "0,00" (conforme original)
-        item.aliq_icms != null ? fmt2(item.aliq_icms) : '0,00',
-        item.aliq_ipi  != null ? fmt2(item.aliq_ipi)  : '0,00',
+        aliqIcms > 0 ? fmt2(aliqIcms) : '0,00',
+        aliqIpi  > 0 ? fmt2(aliqIpi)  : '0,00',
         fmt2(vApTrib),
       ];
       // Calcula altura da linha com base na descrição (pode quebrar em múltiplas linhas)
