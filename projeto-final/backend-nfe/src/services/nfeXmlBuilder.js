@@ -238,7 +238,6 @@ export function buildNFeXml({ numero, serie = 1, naturezaOperacao = 'Venda de pr
             vPIS:       '0.00',
             vCOFINS:    '0.00',
             vOutro:     fmt2(vOutro),
-            ...(vTTrib > 0 ? { vTotTrib: fmt2(vTTrib) } : {}),
             vNF:        fmt2(vNF),
           },
         },
