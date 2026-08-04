@@ -118,12 +118,16 @@ export function buildNFeXml({ numero, serie = 1, naturezaOperacao = 'Venda de pr
       },
       imposto: {
         ...(vItemTrib > 0 ? { vTotTrib: fmt2(vItemTrib) } : {}),
-        ICMS: {
-          ICMSSN102: {   // Simples Nacional - tributada sem crédito (CSOSN 102)
-            orig:  '0',
-            CSOSN: '102',
-          },
-        },
+        ICMS: (() => {
+          // Extrai CSOSN do campo cst do item (ex: '0102' -> '102', '0400' -> '400')
+          const csosnRaw = String(item.cst || '0102').replace(/^0+/, '') || '102';
+          const csosn = csosnRaw.length <= 3 ? csosnRaw : csosnRaw.slice(-3);
+          const tagIcms = csosn === '400' ? 'ICMSSN400'
+                        : csosn === '500' ? 'ICMSSN500'
+                        : csosn === '900' ? 'ICMSSN900'
+                        : 'ICMSSN102';
+          return { [tagIcms]: { orig: String(item.origem || '0'), CSOSN: csosn } };
+        })(),
         PIS: {
           PISNT: { CST: '07' },   // Isenta
         },
