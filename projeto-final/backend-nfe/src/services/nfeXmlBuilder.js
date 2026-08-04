@@ -152,6 +152,31 @@ export function buildNFeXml({ numero, serie = 1, naturezaOperacao = 'Venda de pr
     };
   });
 
+
+  // Recalcula vBC e vICMS a partir dos itens (CSOSN 900 tem valores por item)
+  // Garante que ICMSTot/vBC = soma dos itens (evita cStat=531)
+  const vBCCalculado = itens.reduce((sum, item) => {
+    const csosnRaw = String(item.cst || '0102').replace(/^0+/, '') || '102';
+    const csosn = csosnRaw.length <= 3 ? csosnRaw : csosnRaw.slice(-3);
+    if (csosn === '900') {
+      return sum + parseFloat(item.bcalc_icms || item.valor_total || 0);
+    }
+    return sum;
+  }, 0);
+  const vICMSCalculado = itens.reduce((sum, item) => {
+    const csosnRaw = String(item.cst || '0102').replace(/^0+/, '') || '102';
+    const csosn = csosnRaw.length <= 3 ? csosnRaw : csosnRaw.slice(-3);
+    if (csosn === '900') {
+      const pICMS = parseFloat(item.icms_percent || item.aliq_icms || 0);
+      const vBCItem = parseFloat(item.bcalc_icms || item.valor_total || 0);
+      return sum + (pICMS > 0 ? vBCItem * pICMS / 100 : parseFloat(item.valor_icms || 0));
+    }
+    return sum;
+  }, 0);
+  // Usa valores calculados dos itens se houver CSOSN 900, senão usa os informados manualmente
+  const vBCFinal  = vBCCalculado > 0 ? vBCCalculado  : vBC;
+  const vICMSFinal = vICMSCalculado > 0 ? vICMSCalculado : vICMS;
+
   // Destinatário: CPF ou CNPJ
   const docDest = String(destinatario.cpf_cnpj || '').replace(/\D/g, '');
   const destNode = docDest.length === 11
@@ -240,8 +265,8 @@ export function buildNFeXml({ numero, serie = 1, naturezaOperacao = 'Venda de pr
         det: detList,
         total: {
           ICMSTot: {
-            vBC:        fmt2(vBC),
-            vICMS:      fmt2(vICMS),
+            vBC:        fmt2(vBCFinal),
+            vICMS:      fmt2(vICMSFinal),
             vICMSDeson: '0.00',
             vFCP:       '0.00',
             vBCST:      '0.00',
