@@ -15,7 +15,7 @@ import toast from 'react-hot-toast';
 import { ordemServicoService } from '@services/ordemServicoService';
 import { recebimentoService } from '@services/recebimentoService';
 
-const ITEM_VAZIO = { descricao: '', unidade: 'UN', quantidade: '1.00', valorUnitario: '' };
+const ITEM_VAZIO = { descricao: '', unidade: 'UN', quantidade: '', valorUnitario: '' };
 
 const FORM_VAZIO = {
   tipoCliente: 'cadastrado',
