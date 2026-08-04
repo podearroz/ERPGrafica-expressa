@@ -86,6 +86,15 @@ export function buildNFeXml({ numero, serie = 1, naturezaOperacao = 'Venda de pr
   const diffCents = Math.round(vDesc * 100) - totalDescCents;
   if (descontosCents.length > 0) descontosCents[descontosCents.length - 1] += diffCents;
 
+  // Distribui vOutro proporcional por item (SEFAZ 604: soma vOutro itens = ICMSTot.vOutro)
+  const outroCents = itens.map(item => {
+    if (vOutro === 0 || vProd === 0) return 0;
+    return Math.round((parseFloat(item.valor_total || 0) / vProd) * vOutro * 100);
+  });
+  const totalOutroCents = outroCents.reduce((a, b) => a + b, 0);
+  const diffOutroCents = Math.round(vOutro * 100) - totalOutroCents;
+  if (outroCents.length > 0) outroCents[outroCents.length - 1] += diffOutroCents;
+
   // Montagem dos itens
   const detList = itens.map((item, idx) => {
     const vProdItem    = fmt2(item.valor_total);
@@ -93,6 +102,8 @@ export function buildNFeXml({ numero, serie = 1, naturezaOperacao = 'Venda de pr
     const vUnCom       = fmt10(item.valor_unitario || item.valor_total);
     const vDescItem    = (descontosCents[idx] / 100).toFixed(2);
     const hasDescItem  = descontosCents[idx] > 0;
+    const vOutroItem   = (outroCents[idx] / 100).toFixed(2);
+    const hasOutroItem = outroCents[idx] > 0;
     // vTotTrib por item: proporcional ao valor total do item em relação ao total da nota
     const vItemTrib = vTTrib > 0 && vProd > 0
       ? vTTrib * (parseFloat(item.valor_total || 0) / vProd)
@@ -114,6 +125,7 @@ export function buildNFeXml({ numero, serie = 1, naturezaOperacao = 'Venda de pr
         qTrib:    qCom,
         vUnTrib:  fmt10(item.valor_unitario || item.valor_total),
         ...(hasDescItem ? { vDesc: vDescItem } : {}),
+        ...(hasOutroItem ? { vOutro: vOutroItem } : {}),
         indTot:   '1',
       },
       imposto: {
