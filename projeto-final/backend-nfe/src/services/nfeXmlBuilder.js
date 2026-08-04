@@ -90,6 +90,10 @@ export function buildNFeXml({ numero, serie = 1, naturezaOperacao = 'Venda de pr
     const vUnCom       = fmt2(item.valor_unitario || item.valor_total);
     const vDescItem    = (descontosCents[idx] / 100).toFixed(2);
     const hasDescItem  = descontosCents[idx] > 0;
+    // vTotTrib por item: proporcional ao valor total do item em relação ao total da nota
+    const vItemTrib = vTTrib > 0 && vProd > 0
+      ? vTTrib * (parseFloat(item.valor_total || 0) / vProd)
+      : 0;
     return {
       '@nItem': String(idx + 1),
       prod: {
@@ -110,6 +114,7 @@ export function buildNFeXml({ numero, serie = 1, naturezaOperacao = 'Venda de pr
         indTot:   '1',
       },
       imposto: {
+        ...(vItemTrib > 0 ? { vTotTrib: fmt2(vItemTrib) } : {}),
         ICMS: {
           ICMSSN102: {   // Simples Nacional - tributada sem crédito (CSOSN 102)
             orig:  '0',

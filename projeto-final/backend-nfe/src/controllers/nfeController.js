@@ -84,6 +84,7 @@ async function parsearNFeXml(xmlStr) {
       valor_total:    parseFloat(_t(det.prod.vProd) || 0),
       cst:            _extractCST(det.imposto),
       origem:         '0',
+      valor_tot_trib: parseFloat(_t(det.imposto?.vTotTrib) || 0),
     })),
 
     totais: {
@@ -1128,6 +1129,7 @@ export async function downloadDANFE(req, res) {
       { h: 'VALOR\nIPI',                     w: 34,  align: 'right'  },
       { h: 'ALÍQ.\nICMS',                    w: 28,  align: 'right'  },
       { h: 'ALÍQ.\nIPI',                     w: 28,  align: 'right'  },
+      { h: 'V.APROX\nTRIBUTOS',             w: 38,  align: 'right'  },
     ];
     const fixedW = cols.reduce((s, c) => s + c.w, 0);
     cols[1].w = PW - fixedW;   // coluna descrição ocupa o espaço restante
@@ -1143,8 +1145,19 @@ export async function downloadDANFE(req, res) {
     y += thH;
 
     const rowH = 11;
+    // Pré-calcula total de produtos para proporcionalizar vTotTrib por item
+    const totalProdutosItens = itens.reduce((s, i) => s + parseFloat(i.valor_total || 0), 0);
+    const notaTotTrib = parseFloat(nota.totais?.valor_tot_trib || 0);
     // Linhas dos itens
     itens.forEach(item => {
+      // valor aprox. tributos por item: usa o do XML (vTotTrib por det) se disponível,
+      // senão proporciona o total da nota pelo valor do item
+      const itemVt = parseFloat(item.valor_tot_trib || 0);
+      const vApTrib = itemVt > 0
+        ? itemVt
+        : (notaTotTrib > 0 && totalProdutosItens > 0
+            ? notaTotTrib * parseFloat(item.valor_total || 0) / totalProdutosItens
+            : 0);
       const row = [
         item.produto?.codigo || item.codigo || '',
         item.descricao || item.produto?.nome || '',
@@ -1161,6 +1174,7 @@ export async function downloadDANFE(req, res) {
         // FIX #6: ALÍQ. ICMS e ALÍQ. IPI sempre "0,00" (conforme original)
         item.aliq_icms != null ? fmt2(item.aliq_icms) : '0,00',
         item.aliq_ipi  != null ? fmt2(item.aliq_ipi)  : '0,00',
+        fmt2(vApTrib),
       ];
       // Calcula altura da linha com base na descrição (pode quebrar em múltiplas linhas)
       const descW = cols[1].w;
