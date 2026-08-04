@@ -129,8 +129,10 @@ export function buildNFeXml({ numero, serie = 1, naturezaOperacao = 'Venda de pr
           // CSOSN 900 (Outros): permite informar vBC e vICMS (usado em devoluções inter-regime)
           if (csosn === '900') {
             const pICMS = parseFloat(item.icms_percent || item.aliq_icms || 0);
-            const vBCItem = parseFloat(item.bcalc_icms || item.valor_total || 0);
-            const vICMSItem = pICMS > 0 ? vBCItem * pICMS / 100 : parseFloat(item.valor_icms || 0);
+            // BC por item: proporcional ao valor do item em relação ao total (mesmo campo da Aba 4)
+            const propItem = vProd > 0 ? parseFloat(item.valor_total || 0) / vProd : 1;
+            const vBCItem = vBC > 0 ? vBC * propItem : parseFloat(item.valor_total || 0);
+            const vICMSItem = pICMS > 0 ? vBCItem * pICMS / 100 : (vICMS > 0 ? vICMS * propItem : 0);
             return { ICMSSN900: {
               orig: String(item.origem || '0'), CSOSN: '900',
               modBC: '3',
@@ -153,29 +155,9 @@ export function buildNFeXml({ numero, serie = 1, naturezaOperacao = 'Venda de pr
   });
 
 
-  // Recalcula vBC e vICMS a partir dos itens (CSOSN 900 tem valores por item)
-  // Garante que ICMSTot/vBC = soma dos itens (evita cStat=531)
-  const vBCCalculado = itens.reduce((sum, item) => {
-    const csosnRaw = String(item.cst || '0102').replace(/^0+/, '') || '102';
-    const csosn = csosnRaw.length <= 3 ? csosnRaw : csosnRaw.slice(-3);
-    if (csosn === '900') {
-      return sum + parseFloat(item.bcalc_icms || item.valor_total || 0);
-    }
-    return sum;
-  }, 0);
-  const vICMSCalculado = itens.reduce((sum, item) => {
-    const csosnRaw = String(item.cst || '0102').replace(/^0+/, '') || '102';
-    const csosn = csosnRaw.length <= 3 ? csosnRaw : csosnRaw.slice(-3);
-    if (csosn === '900') {
-      const pICMS = parseFloat(item.icms_percent || item.aliq_icms || 0);
-      const vBCItem = parseFloat(item.bcalc_icms || item.valor_total || 0);
-      return sum + (pICMS > 0 ? vBCItem * pICMS / 100 : parseFloat(item.valor_icms || 0));
-    }
-    return sum;
-  }, 0);
-  // Usa valores calculados dos itens se houver CSOSN 900, senão usa os informados manualmente
-  const vBCFinal  = vBCCalculado > 0 ? vBCCalculado  : vBC;
-  const vICMSFinal = vICMSCalculado > 0 ? vICMSCalculado : vICMS;
+  // vBCFinal e vICMSFinal vêm diretamente dos totais da Aba 4
+  const vBCFinal  = vBC;
+  const vICMSFinal = vICMS;
 
   // Destinatário: CPF ou CNPJ
   const docDest = String(destinatario.cpf_cnpj || '').replace(/\D/g, '');

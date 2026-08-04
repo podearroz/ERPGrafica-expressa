@@ -857,9 +857,7 @@ const ModalEmitirNFe = ({ nota, onClose, onSucesso }) => {
                         </F>
                         <Inp label="Alíq. IPI %" type="number" step="0.01" value={it.ipi_percent} onChange={e => updateItem(i, 'ipi_percent', e.target.value)} placeholder="0,00 (Simples: 0)" />
                         <Inp label="Alíq. ICMS %" type="number" step="0.01" value={it.icms_percent} onChange={e => updateItem(i, 'icms_percent', e.target.value)} placeholder="0,00 (Simples: 0)" />
-                        {it.cst === '0900' && (
-                          <Inp label="BC Calc ICMS (R$)" type="number" step="0.01" value={it.bcalc_icms} onChange={e => updateItem(i, 'bcalc_icms', e.target.value)} placeholder="Base de cálculo ICMS" />
-                        )}
+
                       </div>
                       <div className="grid grid-cols-3 gap-3">
                         <Inp label="Qtde. *" type="number" step="0.001" value={it.quantidade} onChange={e => updateItem(i, 'quantidade', e.target.value)} placeholder="Ex: 1" />
