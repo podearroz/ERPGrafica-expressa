@@ -235,7 +235,7 @@ const ModalEmitirNFe = ({ nota, onClose, onSucesso }) => {
     bc_icms_st: '0', valor_icms_st: '0',
     valor_ipi: '0',
     desconto_reais: '0', desconto_percent: '0',
-    valor_frete: '0', valor_despesas: '0', valor_seguro: '0',
+    valor_frete: '0', valor_despesas: '0', valor_seguro: '0', valor_tot_trib: '0',
     condicao_pagamento: 'À vista', qtd_parcelas: '1',
     forma_pagamento: '01',
   });
@@ -541,6 +541,7 @@ const ModalEmitirNFe = ({ nota, onClose, onSucesso }) => {
             valor_frete: freteVal,
             valor_despesas: despesasVal,
             valor_seguro: seguroVal,
+            valor_tot_trib: parseFloat(totais.valor_tot_trib) || 0,
             valor_total: totalNota,
           },
           pagamento: {
@@ -672,6 +673,7 @@ const ModalEmitirNFe = ({ nota, onClose, onSucesso }) => {
           valor_frete: freteVal,
           valor_despesas: despesasVal,
           valor_seguro: seguroVal,
+          valor_tot_trib: parseFloat(totais.valor_tot_trib) || 0,
         },
         venda: {
           transporte: {
@@ -893,8 +895,11 @@ const ModalEmitirNFe = ({ nota, onClose, onSucesso }) => {
                   </div>
                   <div className="grid grid-cols-3 gap-3">
                     <Inp label="Valor do Frete (R$)" type="number" step="0.01" value={totais.valor_frete} onChange={e => setT('valor_frete', e.target.value)} placeholder="0,00 (sem frete)" />
-                    <Inp label="Outras Despesas (R$)" type="number" step="0.01" value={totais.valor_despesas} onChange={e => setT('valor_despesas', e.target.value)} placeholder="0,00" />
+                    <Inp label="Outras Despesas Acessórias (R$)" type="number" step="0.01" value={totais.valor_despesas} onChange={e => setT('valor_despesas', e.target.value)} placeholder="0,00" />
                     <Inp label="Valor do Seguro (R$)" type="number" step="0.01" value={totais.valor_seguro} onChange={e => setT('valor_seguro', e.target.value)} placeholder="0,00" />
+                  </div>
+                  <div className="grid grid-cols-3 gap-3">
+                    <Inp label="Valor Aprox. dos Tributos (R$)" type="number" step="0.01" value={totais.valor_tot_trib} onChange={e => setT('valor_tot_trib', e.target.value)} placeholder="0,00" />
                   </div>
                   <div className="bg-blue-50 border border-blue-100 rounded-lg p-4">
                     <p className="text-xs text-blue-600 font-medium mb-1">Valor Total da Nota</p>

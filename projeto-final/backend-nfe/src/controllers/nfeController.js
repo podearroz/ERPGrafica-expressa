@@ -87,11 +87,12 @@ async function parsearNFeXml(xmlStr) {
     })),
 
     totais: {
-      bc_icms:       parseFloat(_t(tot?.vBC)    || 0),
-      valor_icms:    parseFloat(_t(tot?.vICMS)  || 0),
-      bc_icms_st:    parseFloat(_t(tot?.vBCST)  || 0),
-      valor_icms_st: parseFloat(_t(tot?.vST)    || 0),
-      valor_ipi:     parseFloat(_t(tot?.vIPI)   || 0),
+      bc_icms:       parseFloat(_t(tot?.vBC)       || 0),
+      valor_icms:    parseFloat(_t(tot?.vICMS)     || 0),
+      bc_icms_st:    parseFloat(_t(tot?.vBCST)     || 0),
+      valor_icms_st: parseFloat(_t(tot?.vST)       || 0),
+      valor_ipi:     parseFloat(_t(tot?.vIPI)      || 0),
+      valor_tot_trib:parseFloat(_t(tot?.vTotTrib)  || 0),
     },
     valor_frete:     parseFloat(_t(tot?.vFrete) || 0),
     valor_seguro:    parseFloat(_t(tot?.vSeg)   || 0),
@@ -165,7 +166,14 @@ export async function emitirNFe(req, res) {
     const naturezaOperacao = body.venda?.natureza_operacao ?? body.naturezaOperacao;
     const observacoes      = body.venda?.observacoes      ?? body.venda?.detalhes?.observacoes ?? body.observacoes ?? '';
     const transporte       = body.venda?.transporte       ?? body.transporte  ?? {};
-    const desconto         = parseFloat(body.venda?.totais?.desconto ?? body.totais?.desconto ?? body.desconto ?? 0);
+    const desconto         = parseFloat(body.venda?.totais?.desconto       ?? body.totais?.desconto       ?? body.desconto     ?? 0);
+    const valorIcms        = parseFloat(body.venda?.totais?.valor_icms     ?? body.totais?.valor_icms     ?? 0);
+    const valorFrete       = parseFloat(body.venda?.totais?.valor_frete    ?? body.totais?.valor_frete    ?? 0);
+    const valorSeguro      = parseFloat(body.venda?.totais?.valor_seguro   ?? body.totais?.valor_seguro   ?? 0);
+    const valorDespesas    = parseFloat(body.venda?.totais?.valor_despesas ?? body.totais?.valor_despesas ?? 0);
+    const valorTotTrib     = parseFloat(body.venda?.totais?.valor_tot_trib ?? body.totais?.valor_tot_trib ?? 0);
+    const finNFe           = String(body.venda?.finalidade   ?? body.finalidade   ?? '1');
+    const tpNF             = String(body.venda?.tipo_operacao ?? body.tipo_operacao ?? '1');
 
     if (!destinatario || !itens?.length) {
       return res.status(400).json({
@@ -208,7 +216,7 @@ export async function emitirNFe(req, res) {
 
     // ── 2. Gera e assina o XML ─────────────────────────────────────────────
     console.log(`📝 Gerando XML NF-e nº ${numero}...`);
-    const { xmlStr, chave } = buildNFeXml({ numero, serie, destinatario, itens, formaPagamento, naturezaOperacao, observacoes, transporte, desconto });
+    const { xmlStr, chave } = buildNFeXml({ numero, serie, destinatario, itens, formaPagamento, naturezaOperacao, observacoes, transporte, desconto, valorIcms, valorFrete, valorSeguro, valorDespesas, valorTotTrib, finNFe, tpNF });
 
     console.log('🔏 Assinando XML com certificado digital...');
     const xmlAssinado = assinarXml(xmlStr);
@@ -995,6 +1003,7 @@ export async function downloadDANFE(req, res) {
     const vlDesc = fmt2(nota.desconto || nota.totais?.desconto || 0);
     const vlDesp = fmt2(nota.outras_despesas || nota.totais?.valor_despesas || 0);
     const vlIPI  = fmt2(nota.valor_ipi || nota.totais?.valor_ipi || 0);
+    const vlTrib = fmt2(nota.totais?.valor_tot_trib || 0);
 
     [
       ['BASE DE CÁLCULO DO ICMS',  bcICMS],
@@ -1011,18 +1020,22 @@ export async function downloadDANFE(req, res) {
     });
     y += rH;
 
+    const impW7  = Math.floor(PW / 7);
+    const impWs2 = [impW7, impW7, impW7, impW7, impW7, impW7, PW - 6 * impW7];
+    const impX2  = i => ML + impWs2.slice(0, i).reduce((s, w) => s + w, 0);
     [
-      ['VALOR DO FRETE',      vlFrt],
-      ['VALOR DO SEGURO',     vlSeg],
-      ['DESCONTO',            vlDesc],
-      ['OUTRAS DESPESAS',     vlDesp],
-      ['VALOR TOTAL DO IPI',  vlIPI],
-      ['VALOR TOTAL DA NOTA', fmt2(totalNota)],
+      ['VALOR DO FRETE',             vlFrt],
+      ['VALOR DO SEGURO',            vlSeg],
+      ['DESCONTO',                   vlDesc],
+      ['OUTRAS DESPESAS ACESSÓRIAS', vlDesp],
+      ['VALOR TOTAL DO IPI',         vlIPI],
+      ['VALOR APROX. DOS TRIBUTOS',  vlTrib],
+      ['VALOR TOTAL DA NOTA',        fmt2(totalNota)],
     ].forEach(([l, v], i) => {
-      box(impX(i), y, impWs[i], rH);
-      L(l, impX(i), y, impWs[i]);
+      box(impX2(i), y, impWs2[i], rH);
+      L(l, impX2(i), y, impWs2[i]);
       doc.save().fontSize(8).font('Helvetica-Bold').fillColor(PRETO)
-         .text(v, impX(i) + 2, y + 10, { width: impWs[i] - 4, align: 'right', lineBreak: false }).restore();
+         .text(v, impX2(i) + 2, y + 10, { width: impWs2[i] - 4, align: 'right', lineBreak: false }).restore();
     });
     y += rH;
 

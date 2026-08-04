@@ -36,7 +36,7 @@ export function gerarChaveAcesso({ cUF, aamm, cnpj, serie, nNF, cNF }) {
 function fmt2(n) { return parseFloat(n || 0).toFixed(2); }
 function fmt4(n) { return parseFloat(n || 0).toFixed(4); }
 
-export function buildNFeXml({ numero, serie = 1, naturezaOperacao = 'Venda de producao do estabelecimento', destinatario, itens, formaPagamento = '01', observacoes = '', transporte = {}, desconto = 0 }) {
+export function buildNFeXml({ numero, serie = 1, naturezaOperacao = 'Venda de producao do estabelecimento', destinatario, itens, formaPagamento = '01', observacoes = '', transporte = {}, desconto = 0, valorIcms = 0, valorFrete = 0, valorSeguro = 0, valorDespesas = 0, valorTotTrib = 0, finNFe = '1', tpNF = '1' }) {
   // tpAmb obrigatoriamente via variável de ambiente
   const tpAmb = process.env.NODE_ENV === 'producao' ? '1' : '2';
   const cUF   = String(process.env.SEFAZ_CODIGO_UF || '11');
@@ -64,9 +64,14 @@ export function buildNFeXml({ numero, serie = 1, naturezaOperacao = 'Venda de pr
   console.log(`[XML] tpAmb=${tpAmb} dhEmi=${dhEmi} cDV=${cDV}`);
 
   // Totais
-  const vProd = itens.reduce((s, i) => s + parseFloat(i.valor_total || 0), 0);
-  const vDesc = parseFloat(desconto) || 0;
-  const vNF   = Math.max(0, vProd - vDesc);
+  const vProd  = itens.reduce((s, i) => s + parseFloat(i.valor_total || 0), 0);
+  const vDesc  = parseFloat(desconto)     || 0;
+  const vFrete = parseFloat(valorFrete)   || 0;
+  const vSeg   = parseFloat(valorSeguro)  || 0;
+  const vOutro = parseFloat(valorDespesas)|| 0;
+  const vICMS  = parseFloat(valorIcms)    || 0;
+  const vTTrib = parseFloat(valorTotTrib) || 0;
+  const vNF    = Math.max(0, vProd + vFrete + vSeg + vOutro - vDesc);
 
   // Distribui desconto proporcional por item (SEFAZ 537: soma vDesc itens = ICMSTot.vDesc)
   const descontosCents = itens.map(item => {
@@ -147,14 +152,14 @@ export function buildNFeXml({ numero, serie = 1, naturezaOperacao = 'Venda de pr
           nNF:      String(numero),
           dhEmi,
           dhSaiEnt: dhEmi,
-          tpNF:     '1',       // saída
+          tpNF:     tpNF,       // 0=entrada, 1=saída
           idDest,              // 1=interna, 2=interestadual, 3=exterior (auto pelo CFOP)
           cMunFG:   process.env.EMPRESA_CODIGO_MUNICIPIO || '1101708',
           tpImp:    '1',       // DANFE retrato
           tpEmis:   '1',       // emissão normal
           cDV,
           tpAmb,
-          finNFe:   '1',       // normal
+          finNFe:   finNFe,    // 1=normal, 2=complementar, 3=ajuste, 4=devolução
           indFinal: '1',       // consumidor final
           indPres:  '1',       // presencial
           procEmi:  '0',
@@ -209,7 +214,7 @@ export function buildNFeXml({ numero, serie = 1, naturezaOperacao = 'Venda de pr
         total: {
           ICMSTot: {
             vBC:        '0.00',
-            vICMS:      '0.00',
+            vICMS:      fmt2(vICMS),
             vICMSDeson: '0.00',
             vFCP:       '0.00',
             vBCST:      '0.00',
@@ -217,15 +222,16 @@ export function buildNFeXml({ numero, serie = 1, naturezaOperacao = 'Venda de pr
             vFCPST:     '0.00',
             vFCPSTRet:  '0.00',
             vProd:      fmt2(vProd),
-            vFrete:     '0.00',
-            vSeg:       '0.00',
+            vFrete:     fmt2(vFrete),
+            vSeg:       fmt2(vSeg),
             vDesc:      fmt2(vDesc),
             vII:        '0.00',
             vIPI:       '0.00',
             vIPIDevol:  '0.00',
             vPIS:       '0.00',
             vCOFINS:    '0.00',
-            vOutro:     '0.00',
+            vOutro:     fmt2(vOutro),
+            ...(vTTrib > 0 ? { vTotTrib: fmt2(vTTrib) } : {}),
             vNF:        fmt2(vNF),
           },
         },
